@@ -5,7 +5,7 @@ plugins {
     id("com.android.application")
     id("kotlin-android")
     id("dev.flutter.flutter-gradle-plugin")
-    id("com.google.gms.google-services")
+    id("com.google.gms.google-services") // ✅ penting agar Firebase aktif
 }
 
 val keystoreProperties = Properties()
@@ -20,8 +20,8 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace = "com.ksmi.koperasi"
-    compileSdk = 36  // ✅ disarankan oleh log build
-    ndkVersion = "27.0.12077973"  // ✅ disarankan oleh log build
+    compileSdk = 36
+    ndkVersion = "27.0.12077973" // ✅ pakai versi terbaru biar cocok dengan plugin Firebase
 
     val flutterVersionCode = project.findProperty("flutterVersionCode")?.toString()?.toIntOrNull() ?: 1
     val flutterVersionName = project.findProperty("flutterVersionName")?.toString() ?: "1.0.0"
@@ -61,9 +61,10 @@ android {
             isMinifyEnabled = false
             isShrinkResources = false
         }
+        debug {
+            signingConfig = signingConfigs.getByName("debug")
+        }
     }
-
-    ndkVersion = "26.1.10909125"
 }
 
 flutter {
