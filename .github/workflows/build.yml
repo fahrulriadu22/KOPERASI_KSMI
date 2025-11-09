@@ -8,49 +8,53 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-      
+
     - name: Setup Flutter
       uses: subosito/flutter-action@v2
       with:
         channel: 'stable'
         cache: true
-        
+
+    - name: Flutter doctor (cek environment)
+      run: flutter doctor -v
+
     - name: Install dependencies
       run: flutter pub get
 
-    # ✅ Tambahan: patch otomatis bug bigLargeIcon ambiguous
+    # ✅ Hapus cache lama supaya gak bentrok plugin
+    - name: Clear old Flutter pub cache
+      run: rm -rf ~/.pub-cache/hosted/pub.dev/flutter_local_notifications-*
+
+    # ✅ Patch bug flutter_local_notifications di SDK 36
     - name: Patch flutter_local_notifications BigPictureStyle bug
       run: |
-        FILE=$(find ~/.pub-cache -path "*/flutter_local_notifications-16.3.3/android/src/main/java/com/dexterous/flutterlocalnotifications/FlutterLocalNotificationsPlugin.java")
-        echo "🔧 Patching $FILE"
-        echo "🛠️ Updating compileSdk and targetSdk to 36..."
-        sed -i 's/compileSdkVersion [0-9]\+/compileSdkVersion 36/' android/app/build.gradle || true
-        sed -i 's/targetSdkVersion [0-9]\+/targetSdkVersion 36/' android/app/build.gradle || true
+        FILE=$(find ~/.pub-cache -path "*/flutter_local_notifications-16.3.3/android/src/main/java/com/dexterous/flutterlocalnotifications/FlutterLocalNotificationsPlugin.java" | head -n 1)
+        if [ -f "$FILE" ]; then
+          echo "🔧 Fixing BigPictureStyle null ambiguity in $FILE"
+          sed -i 's/bigLargeIcon(null)/bigLargeIcon((android.graphics.Bitmap) null)/' "$FILE"
+        fi
+
+    # ✅ Pastikan compileSdk & targetSdk = 36 di project
+    - name: Ensure compileSdk/targetSdk version
+      run: |
         sed -i 's/compileSdk = [0-9]\+/compileSdk = 36/' android/app/build.gradle.kts || true
         sed -i 's/targetSdk = [0-9]\+/targetSdk = 36/' android/app/build.gradle.kts || true
 
-    - name: Clean Flutter
-      run: flutter clean
-
-    - name: Remove old cache
-      run: rm -rf ~/.pub-cache/hosted/pub.dev/flutter_local_notifications-*
-
-    - name: Get dependencies
-      run: flutter pub get
-    
-    - name: Fix bigLargeIcon null ambiguity
+    - name: Flutter clean & rebuild
       run: |
-        sed -i 's/bigLargeIcon(null)/bigLargeIcon((android.graphics.Bitmap) null)/' $HOME/.pub-cache/hosted/pub.dev/flutter_local_notifications-16.2.0/android/src/main/java/com/dexterous/flutterlocalnotifications/FlutterLocalNotificationsPlugin.java
+        flutter clean
+        flutter pub get
 
-      
+    # ✅ Build APK release
     - name: Build release APK
       run: flutter build apk --release --no-tree-shake-icons
-        
-    - name: Upload APK
+
+    # ✅ Upload hasil APK
+    - name: Upload APK artifact
       uses: actions/upload-artifact@v4
       with:
         name: koperasi-ksmi-apk
