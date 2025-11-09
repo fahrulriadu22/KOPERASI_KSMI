@@ -5,6 +5,13 @@ plugins {
     id("com.google.gms.google-services")
 }
 
+val keystorePropertiesFile = rootProject.file("key.properties")
+val keystoreProperties = java.util.Properties()
+
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(java.io.FileInputStream(keystorePropertiesFile))
+}
+
 android {
     namespace = "com.ksmi.koperasi"
     compileSdk = 34  // ✅ Aman sampai Android 14
@@ -33,7 +40,12 @@ android {
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.create("release") {
+                storeFile = file(keystoreProperties["storeFile"] as String)
+                storePassword = keystoreProperties["storePassword"] as String
+                keyAlias = keystoreProperties["keyAlias"] as String
+                keyPassword = keystoreProperties["keyPassword"] as String
+            }
             isMinifyEnabled = false
             isShrinkResources = false
         }
