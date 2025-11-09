@@ -8,46 +8,48 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-
+    
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-
+      
     - name: Setup Flutter
       uses: subosito/flutter-action@v2
       with:
         channel: 'stable'
         cache: true
-
+        
     - name: Install dependencies
       run: flutter pub get
 
-    # ✅ Step 1: Decode keystore & key.properties dari Secrets
-    - name: Setup signing files
-      run: |
-        echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/key.jks
-        echo "${{ secrets.KEY_PROPERTIES }}" > android/key.properties
-        echo "✅ Keystore & properties file created"
-
-    # ✅ Step 2: Patch bug notifikasi
+    # ✅ Tambahan: patch otomatis bug bigLargeIcon ambiguous
     - name: Patch flutter_local_notifications BigPictureStyle bug
       run: |
-        FILE=$(find ~/.pub-cache -path "*/flutter_local_notifications-16.2.0/android/src/main/java/com/dexterous/flutterlocalnotifications/FlutterLocalNotificationsPlugin.java")
+        FILE=$(find ~/.pub-cache -path "*/flutter_local_notifications-16.3.3/android/src/main/java/com/dexterous/flutterlocalnotifications/FlutterLocalNotificationsPlugin.java")
         echo "🔧 Patching $FILE"
-        sed -i 's/bigLargeIcon(null)/bigLargeIcon((android.graphics.Bitmap) null)/' "$FILE"
+        echo "🛠️ Updating compileSdk and targetSdk to 36..."
+        sed -i 's/compileSdkVersion [0-9]\+/compileSdkVersion 36/' android/app/build.gradle || true
+        sed -i 's/targetSdkVersion [0-9]\+/targetSdkVersion 36/' android/app/build.gradle || true
+        sed -i 's/compileSdk = [0-9]\+/compileSdk = 36/' android/app/build.gradle.kts || true
+        sed -i 's/targetSdk = [0-9]\+/targetSdk = 36/' android/app/build.gradle.kts || true
 
-    # ✅ Step 3: Clean & Reinstall deps
     - name: Clean Flutter
       run: flutter clean
 
+    - name: Remove old cache
+      run: rm -rf ~/.pub-cache/hosted/pub.dev/flutter_local_notifications-*
+
     - name: Get dependencies
       run: flutter pub get
+    
+    - name: Fix bigLargeIcon null ambiguity
+      run: |
+        sed -i 's/bigLargeIcon(null)/bigLargeIcon((android.graphics.Bitmap) null)/' $HOME/.pub-cache/hosted/pub.dev/flutter_local_notifications-16.2.0/android/src/main/java/com/dexterous/flutterlocalnotifications/FlutterLocalNotificationsPlugin.java
 
-    # ✅ Step 4: Build release APK
+      
     - name: Build release APK
       run: flutter build apk --release --no-tree-shake-icons
-
-    # ✅ Step 5: Upload artifact
+        
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
