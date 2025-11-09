@@ -27,8 +27,11 @@ dependencies:
   workmanager: ^0.9.0+3
 
 dependency_overrides:
-  flutter_local_notifications: 16.2.0
-  flutter_local_notifications_platform_interface: 7.1.0
+  flutter_local_notifications:
+    git:
+      url: https://github.com/dexterous/flutter_local_notifications.git
+      ref: main
+
   
 dev_dependencies:
   flutter_test:
