@@ -86,22 +86,31 @@ bool _isNotificationPopupOpen = false;
   String _errorMessage = '';
   int _unreadNotifications = 0;
 
-  @override
-  void initState() {
-    super.initState();
-    _activeMenuItems = List.from(_allMenuItems);
-    _loadCurrentUser();
-    _loadDataFromApi();
-    _loadUnreadNotifications();
-    
-    // ✅ SETUP NOTIFICATION LISTENER
-    _setupNotificationListener();
-  }
+// DI INITSTATE() DASHBOARDSCREEN - TAMBAHKAN:
+@override
+void initState() {
+  super.initState();
+  _activeMenuItems = List.from(_allMenuItems);
+  _loadCurrentUser();
+  _loadDataFromApi();
+  _loadUnreadNotifications();
+  
+  // ✅ SETUP NOTIFICATION LISTENER
+  _setupNotificationListener();
+  
+  // ✅ SETUP REAL-TIME STREAMS (TAMBAH INI)
+  _setupRealTimeStreams();
+}
 
+// ✅ UPDATE DISPOSE() - TAMBAHKAN:
 @override
 void dispose() {
   _scrollController.dispose();
-  _closeNotificationPopup(); // ✅ TUTUP POPUP JIKA ADA
+  _closeNotificationPopup();
+  
+  // ✅ STOP PERIODIC SYNC JIKA PERLU
+  // firebaseService.stopPeriodicSync(); // Opsional
+  
   super.dispose();
 }
 
@@ -123,6 +132,80 @@ void dispose() {
       }
     }
   }
+
+  // ✅ TAMBAHKAN METHOD INI:
+void _setupRealTimeStreams() {
+  // Listen untuk real-time unread count updates
+  firebaseService.unreadCountStream.listen((unreadCount) {
+    print('📱 Real-time unread count: $unreadCount');
+    if (mounted) {
+      setState(() {
+        _unreadNotifications = unreadCount;
+      });
+    }
+  });
+
+  // Listen untuk real-time notifications
+  firebaseService.notificationStream.listen((notification) {
+    print('📱 Real-time notification received: ${notification['title']}');
+    _showRealTimeNotificationSnackbar(notification);
+  });
+
+  // Listen untuk real-time inbox data
+  firebaseService.inboxDataStream.listen((inboxData) {
+    print('📱 Real-time inbox data updated: ${inboxData.length} items');
+    // Bisa refresh popup notifikasi jika sedang terbuka
+    if (_isNotificationPopupOpen) {
+      setState(() {});
+    }
+  });
+}
+
+// ✅ TAMBAHKAN METHOD INI:
+void _showRealTimeNotificationSnackbar(Map<String, dynamic> notification) {
+  final title = notification['title'] ?? 'KSMI Koperasi';
+  final body = notification['body'] ?? 'Pesan baru';
+  
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            body,
+            style: const TextStyle(fontSize: 12),
+          ),
+        ],
+      ),
+      backgroundColor: Colors.green[700],
+      duration: const Duration(seconds: 4),
+      behavior: SnackBarBehavior.floating,
+      action: SnackBarAction(
+        label: 'Buka',
+        textColor: Colors.white,
+        onPressed: () {
+          _showNotificationPopup();
+        },
+      ),
+    ),
+  );
+  
+  // Auto increment unread count
+  if (mounted) {
+    setState(() {
+      _unreadNotifications++;
+    });
+  }
+}
 
   // ✅ PERBAIKAN: LOAD UNREAD NOTIFICATIONS
   Future<void> _loadUnreadNotifications() async {

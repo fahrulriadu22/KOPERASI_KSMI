@@ -154,103 +154,118 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  // ✅ HANDLE SUCCESSFUL LOGIN
-  void _handleSuccessfulLogin(Map<String, dynamic> user) {
-    try {
-      // ✅ PERBAIKAN: CEK APAKAH ADA CALLBACK onLoginSuccess
-      if (widget.onLoginSuccess != null) {
-        // Jika ada callback, panggil callback (ini yang dipakai dari main.dart)
-        print('🎉 Using callback for login success');
-        widget.onLoginSuccess!(user);
-      } else {
-        // Jika tidak ada callback, handle navigation sendiri
-        print('🎉 Handling navigation directly from login screen');
-        _checkDokumenStatusAndNavigate(user);
-      }
-    } catch (e) {
-      print('❌ Error in successful login handling: $e');
-      // Fallback navigation
-      _navigateToDashboard(user);
+void _handleSuccessfulLogin(Map<String, dynamic> user) {
+  try {
+    // ✅ DEBUG: Tampilkan status user
+    print('🎉 LOGIN SUCCESS - User Status: ${user['status_user']}');
+    print('🎉 LOGIN SUCCESS - User ID: ${user['user_id']}');
+    
+    // ✅ PERBAIKAN: CEK APAKAH ADA CALLBACK onLoginSuccess
+    if (widget.onLoginSuccess != null) {
+      print('🎉 Using callback for login success');
+      widget.onLoginSuccess!(user);
+    } else {
+      print('🎉 Handling navigation directly from login screen');
+      _checkDokumenStatusAndNavigate(user);
     }
+  } catch (e) {
+    print('❌ Error in successful login handling: $e');
+    // Fallback navigation
+    _navigateToDashboard(user);
   }
+}
 
-  // ✅ CEK STATUS DOKUMEN DAN NAVIGASI
-  void _checkDokumenStatusAndNavigate(Map<String, dynamic> user) {
-    try {
-      final dokumenStatus = _getDokumenStatus(user);
-      final allDokumenUploaded = dokumenStatus['allComplete'];
-      
-      print('''
-📄 Document Status Check:
-  - KTP: ${dokumenStatus['ktp']} (${user['foto_ktp']})
-  - KK: ${dokumenStatus['kk']} (${user['foto_kk']})  
-  - Foto Diri: ${dokumenStatus['diri']} (${user['foto_diri']})
-  - All Complete: $allDokumenUploaded
+// ✅ FIX: CEK STATUS USER DAN NAVIGASI YANG BENAR
+void _checkDokumenStatusAndNavigate(Map<String, dynamic> user) {
+  try {
+    final userStatus = user['status_user'] ?? user['status'] ?? 0;
+    final dokumenStatus = _getDokumenStatus(user);
+    
+    print('''
+👤 User Status Check:
+  - Status User: $userStatus (${userStatus.runtimeType})
+  - All Documents Uploaded: ${dokumenStatus['allComplete']}
+📄 Document Status:
+  - KTP: ${dokumenStatus['ktp']}
+  - KK: ${dokumenStatus['kk']}  
+  - Foto Diri: ${dokumenStatus['diri']}
+  - Foto Bukti: ${dokumenStatus['bukti']}
 ''');
-      
-      if (!allDokumenUploaded) {
-        // ✅ Navigasi ke UploadDokumenScreen jika dokumen belum lengkap
-        print('📱 Navigating to UploadDokumenScreen');
-        _navigateToUploadDokumen(user);
-      } else {
-        // ✅ Langsung ke dashboard jika dokumen sudah lengkap
-        print('📱 Navigating directly to Dashboard');
-        _navigateToDashboard(user);
-      }
-    } catch (e) {
-      print('❌ Error in document check navigation: $e');
-      // Fallback ke dashboard jika ada error
+    
+    // ✅ FIX: LOGIC YANG BENAR UNTUK STATUS_USER
+    if (userStatus == 0 || userStatus == '0') {
+      // ✅ STATUS 0 = MENUNGGU VERIFIKASI ADMIN -> Upload Dokumen
+      print('📱 Status 0: Menunggu verifikasi, navigating to UploadDokumenScreen');
+      _navigateToUploadDokumen(user);
+    } else if (userStatus == 1 || userStatus == '1') {
+      // ✅ STATUS 1 = SUDAH VERIFIED -> Dashboard
+      print('📱 Status 1: Sudah verified, navigating to Dashboard');
       _navigateToDashboard(user);
+    } else {
+      // ✅ FALLBACK: Default ke UploadDokumenScreen untuk safety
+      print('📱 Status unknown ($userStatus), default to UploadDokumenScreen');
+      _navigateToUploadDokumen(user);
     }
+  } catch (e) {
+    print('❌ Error in user status check navigation: $e');
+    // Fallback ke upload dokumen jika ada error
+    _navigateToUploadDokumen(user);
   }
+}
 
-  // ✅ FIX: CEK STATUS DOKUMEN YANG BENAR
-  Map<String, dynamic> _getDokumenStatus(Map<String, dynamic> user) {
-    final ktp = user['foto_ktp'];
-    final kk = user['foto_kk'];
-    final diri = user['foto_diri'];
-    final bukti = user['foto_bukti'];
-    
-    print('🐛 === DOCUMENT STATUS DEBUG ===');
-    print('📄 KTP Status: $ktp');
-    print('📄 KK Status: $kk');
-    print('📄 Foto Diri Status: $diri');
-    print('📄 Foto Bukti Status: $bukti');
-    print('🔗 KTP is HTTP URL: ${ktp?.toString().startsWith('http')}');
-    print('🔗 KK is HTTP URL: ${kk?.toString().startsWith('http')}');
-    print('🔗 Foto Diri is HTTP URL: ${diri?.toString().startsWith('http')}');
-    print('🔗 Foto Bukti is HTTP URL: ${bukti?.toString().startsWith('http')}');
-    print('🐛 === DEBUG END ===');
-    
-    // ✅ FIX: CEK APAKAH FILE SUDAH ADA DI SERVER (TIDAK PERLU HTTP)
-    final hasKTP = ktp != null && 
-                  ktp.toString().isNotEmpty && 
-                  ktp != 'uploaded' &&
-                  ktp.toString().contains('.jpg'); // Cukup cek ada extension .jpg
-    
-    final hasKK = kk != null && 
-                 kk.toString().isNotEmpty && 
-                 kk != 'uploaded' &&
-                 kk.toString().contains('.jpg');
-    
-    final hasDiri = diri != null && 
-                   diri.toString().isNotEmpty && 
-                   diri != 'uploaded' &&
-                   diri.toString().contains('.jpg');
-    
-    final hasBukti = bukti != null && 
-                    bukti.toString().isNotEmpty && 
-                    bukti != 'uploaded' &&
-                    bukti.toString().contains('.jpg');
-    
-    return {
-      'ktp': hasKTP,
-      'kk': hasKK,
-      'diri': hasDiri,
-      'bukti': hasBukti,
-      'allComplete': hasKTP && hasKK && hasDiri && hasBukti,
-    };
-  }
+// ✅ FIX: CEK STATUS DOKUMEN YANG LEBIH AKURAT
+Map<String, dynamic> _getDokumenStatus(Map<String, dynamic> user) {
+  final ktp = user['foto_ktp'];
+  final kk = user['foto_kk'];
+  final diri = user['foto_diri'];
+  final bukti = user['foto_bukti'];
+  
+  print('🐛 === DOCUMENT STATUS DEBUG ===');
+  print('📄 KTP: $ktp');
+  print('📄 KK: $kk');
+  print('📄 Foto Diri: $diri');
+  print('📄 Foto Bukti: $bukti');
+  
+  // ✅ FIX: VALIDASI YANG LEBIH BAIK
+  final hasKTP = ktp != null && 
+                ktp.toString().isNotEmpty && 
+                ktp != 'null' &&
+                ktp != 'uploaded' &&
+                (ktp.toString().contains('.jpg') || ktp.toString().contains('.jpeg') || ktp.toString().contains('.png'));
+  
+  final hasKK = kk != null && 
+               kk.toString().isNotEmpty && 
+               kk != 'null' &&
+               kk != 'uploaded' &&
+               (kk.toString().contains('.jpg') || kk.toString().contains('.jpeg') || kk.toString().contains('.png'));
+  
+  final hasDiri = diri != null && 
+                 diri.toString().isNotEmpty && 
+                 diri != 'null' &&
+                 diri != 'uploaded' &&
+                 (diri.toString().contains('.jpg') || diri.toString().contains('.jpeg') || diri.toString().contains('.png'));
+  
+  final hasBukti = bukti != null && 
+                  bukti.toString().isNotEmpty && 
+                  bukti != 'null' &&
+                  bukti != 'uploaded' &&
+                  (bukti.toString().contains('.jpg') || bukti.toString().contains('.jpeg') || bukti.toString().contains('.png'));
+  
+  print('✅ KTP Uploaded: $hasKTP');
+  print('✅ KK Uploaded: $hasKK');
+  print('✅ Foto Diri Uploaded: $hasDiri');
+  print('✅ Foto Bukti Uploaded: $hasBukti');
+  print('🎯 All Complete: ${hasKTP && hasKK && hasDiri && hasBukti}');
+  print('🐛 === DEBUG END ===');
+  
+  return {
+    'ktp': hasKTP,
+    'kk': hasKK,
+    'diri': hasDiri,
+    'bukti': hasBukti,
+    'allComplete': hasKTP && hasKK && hasDiri && hasBukti,
+  };
+}
 
   // ✅ NAVIGATION METHODS
   void _navigateToUploadDokumen(Map<String, dynamic> user) {

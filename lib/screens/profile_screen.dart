@@ -76,9 +76,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 @override
 void initState() {
   super.initState();
-  _currentUser = Map<String, dynamic>.from(widget.user);
-  
-  print('🎯 INITSTATE CALLED');
+    _currentUser = Map<String, dynamic>.from(widget.user);
   
   // ✅ LOAD DATA SEGERA SETELAH INIT
   WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -496,123 +494,6 @@ Future<void> _clearLocalImageCache() async {
   }
 }
 
-<<<<<<< HEAD
-// ✅ FIX: DIALOG SETELAH UPLOAD DENGAN STATUS VERIFIKASI
-void _showVerificationDialog() {
-  if (!mounted) return;
-  
-  showDialog(
-    context: context,
-    barrierDismissible: false,
-    builder: (context) => AlertDialog(
-      title: const Row(
-        children: [
-          Icon(Icons.upload_file, color: Colors.green),
-          SizedBox(width: 8),
-          Text('Upload Berhasil'),
-        ],
-      ),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Dokumen Anda telah berhasil diupload ke server.',
-            style: TextStyle(fontSize: 14),
-          ),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.orange[50],
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.orange),
-            ),
-            child: const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(Icons.schedule, color: Colors.orange, size: 18),
-                    SizedBox(width: 8),
-                    Text(
-                      'Status Verifikasi',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.orange,
-                      ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: 8),
-                Text(
-                  '• Menunggu verifikasi admin\n'
-                  '• Proses verifikasi: 1x24 jam\n'
-                  '• Anda dapat menggunakan aplikasi\n'
-                  '• Status akan diperbarui otomatis',
-                  style: TextStyle(fontSize: 12),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-      actions: [
-        ElevatedButton(
-          onPressed: () {
-            Navigator.pop(context);
-            _proceedToDashboard();
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.green,
-          ),
-          child: const Text('Lanjut ke Dashboard'),
-        ),
-      ],
-    ),
-  );
-}
-
-// ✅ METHOD UNTUK PROCEED TO DASHBOARD
-void _proceedToDashboard() {
-  print('🚀 Starting proceed to dashboard...');
-  
-  // ✅ GUNAKAN Future.microtask UNTUK MEMASTIKAN BUILD SELESAI
-  Future.microtask(() {
-    if (!mounted) {
-      print('🔄 Widget not mounted, skipping navigation');
-      return;
-    }
-
-    final updatedUser = Map<String, dynamic>.from(_currentUser);
-
-    print('🎯 Final navigation check:');
-    print('   - KTP Server: ${_isDocumentUploadedToServer('ktp')}');
-    print('   - KK Server: ${_isDocumentUploadedToServer('kk')}');
-    print('   - Foto Diri Server: ${_isDocumentUploadedToServer('diri')}');
-
-    try {
-      if (widget.onProfileUpdated != null) {
-        print('📞 Memanggil callback onProfileUpdated...');
-        widget.onProfileUpdated!();
-      } else {
-        print('🔄 Kembali ke previous screen...');
-        Navigator.pop(context);
-      }
-      print('✅ Navigation successful');
-    } catch (e) {
-      print('❌ Navigation error: $e');
-      // FALLBACK: Coba navigasi sederhana
-      if (mounted) {
-        try {
-          Navigator.pop(context);
-        } catch (e2) {
-          print('❌ Fallback navigation also failed: $e2');
-        }
-      }
-    }
-  });
-=======
 // ✅ FIX: CLEAR ALL IMAGE CACHE YANG LEBIH EFFECTIVE
 void _clearAllImageCache() {
   try {
@@ -1047,60 +928,65 @@ void _checkAutoUpload() {
     );
   }
 
-// ✅ PROSES UPLOAD YANG SEBENARNYA - 3 ASLI + 1 DUMMY
-Future<void> _startUploadProcess() async {
-  if (mounted) {
-    setState(() {
-      _isUploading = true;
-    });
-  }
-
-  print('🚀 Starting upload process with dummy system...');
-  
-  try {
-    // ✅ GUNAKAN UPLOAD WITH DUMMY SYSTEM YANG SUDAH FIX
-    final result = await _storageService.uploadWithDummySystem();
-
+  // ✅ PROSES UPLOAD YANG SEBENARNYA - 3 ASLI + 1 DUMMY
+  Future<void> _startUploadProcess() async {
     if (mounted) {
       setState(() {
-        _isUploading = false;
+        _isUploading = true;
       });
     }
 
-    if (result['success'] == true) {
-      // ✅ TAMPILKAN DIALOG VERIFIKASI SETELAH UPLOAD BERHASIL
-      _showVerificationDialog();
+    print('🚀 Starting upload process with dummy system...');
+    
+    try {
+      // ✅ GUNAKAN UPLOAD WITH DUMMY SYSTEM YANG SUDAH FIX
+      final result = await _storageService.uploadWithDummySystem();
 
-      // ✅ REFRESH USER DATA SETELAH UPLOAD BERHASIL
-      print('🔄 Refreshing user data after successful upload...');
-      await _loadCurrentUser();
-      widget.onProfileUpdated?.call();
+      if (mounted) {
+        setState(() {
+          _isUploading = false;
+        });
+      }
+
+      if (result['success'] == true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result['message'] ?? 'Upload berhasil'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+
+        // ✅ REFRESH USER DATA SETELAH UPLOAD BERHASIL
+        print('🔄 Refreshing user data after successful upload...');
+        await _loadCurrentUser();
+        widget.onProfileUpdated?.call();
+        
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result['message'] ?? 'Upload gagal'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isUploading = false;
+        });
+      }
       
-    } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(result['message'] ?? 'Upload gagal'),
+          content: Text('Upload error: $e'),
           backgroundColor: Colors.red,
           duration: const Duration(seconds: 4),
         ),
       );
     }
-  } catch (e) {
-    if (mounted) {
-      setState(() {
-        _isUploading = false;
-      });
-    }
-    
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Upload error: $e'),
-        backgroundColor: Colors.red,
-        duration: const Duration(seconds: 4),
-      ),
-    );
   }
-}
 
   // ✅ SHOW IMAGE SOURCE DIALOG dengan opsi kamera
   void _showImageSourceDialog(String type, String documentName) {
@@ -1179,7 +1065,7 @@ Future<void> _startUploadProcess() async {
     );
   }
 
-// ✅ BUILD DOKUMEN CARD - DENGAN STATUS VERIFIKASI YANG BENAR
+// ✅ BUILD DOKUMEN CARD - GUNAKAN LOGIC YANG SAMA
 Widget _buildDokumenCard({
   required String type,
   required String title,
@@ -1197,27 +1083,21 @@ Widget _buildDokumenCard({
 
   print('🎨 Building $type card - Server: $isUploadedToServer, Local: $hasLocalFile');
 
-  return Card(
-    elevation: 2,
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-    child: Padding(
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon, color: color, size: 24),
             ),
-<<<<<<< HEAD
-            child: Icon(icon, color: color, size: 24),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-=======
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -1241,16 +1121,16 @@ Widget _buildDokumenCard({
                   ),
                   const SizedBox(height: 6),
                   
-                  // ✅ GANTI STATUS "Terverifikasi di Server" MENJADI "Menunggu Verifikasi Admin"
+                  // ✅ STATUS INDICATOR (PRIORITAS SERVER STATUS)
                   if (isUploadedToServer) ...[
                     Row(
                       children: [
-                        Icon(Icons.pending_actions, color: Colors.orange, size: 14), // ✅ UBAH ICON
+                        Icon(Icons.cloud_done, color: Colors.green, size: 14),
                         const SizedBox(width: 4),
                         Text(
-                          'Menunggu Verifikasi Admin', // ✅ UBAH TEKS
+                          'Terverifikasi di Server',
                           style: TextStyle(
-                            color: Colors.orange, // ✅ UBAH WARNA JADI ORANGE
+                            color: Colors.green,
                             fontWeight: FontWeight.w500,
                             fontSize: 11,
                           ),
@@ -1326,199 +1206,68 @@ Widget _buildDokumenCard({
             Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  description,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[600],
-                    height: 1.4,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                
-                // ✅ ✅ ✅ STATUS INDICATOR YANG DIPERBAIKI - POINT 3 FULL
-                if (isUploadedToServer) ...[
-                  // ✅ FILE SUDAH DIUPLOAD TAPI MENUNGGU VERIFIKASI
-                  Row(
-                    children: [
-                      Icon(Icons.pending, color: Colors.orange, size: 14),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Menunggu Verifikasi Admin', // ✅ SELALU TAMPILKAN INI
-                        style: TextStyle(
-                          color: Colors.orange,
-                          fontWeight: FontWeight.w500,
-                          fontSize: 11,
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (serverUrl != null) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      'File: ${_shortenUrl(serverUrl)}',
-                      style: TextStyle(
-                        color: Colors.orange[600],
-                        fontSize: 9,
-                        fontStyle: FontStyle.italic,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                  const SizedBox(height: 4),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: Colors.green[50],
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(color: Colors.green[200]!),
-                    ),
-                    child: Text(
-                      'File sudah diupload',
-                      style: TextStyle(
-                        color: Colors.green[700],
-                        fontSize: 9,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ] else if (hasLocalFile) ...[
-                  // ✅ FILE ADA DI LOKAL TAPI BELUM DIUPLOAD
-                  Row(
-                    children: [
-                      Icon(Icons.pending, color: Colors.orange, size: 14),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Menunggu Upload ke Server',
-                        style: TextStyle(
-                          color: Colors.orange,
-                          fontWeight: FontWeight.w500,
-                          fontSize: 11,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        '${(fileInfo['size'] / 1024).toStringAsFixed(1)} KB',
-                        style: TextStyle(
-                          color: Colors.grey[600],
-                          fontSize: 10,
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (fileInfo['filename'] != null) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      fileInfo['filename'],
-                      style: TextStyle(
-                        color: Colors.grey[500],
-                        fontSize: 10,
-                        fontStyle: FontStyle.italic,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ] else ...[
-                  // ✅ BELUM ADA FILE
-                  Row(
-                    children: [
-                      Icon(Icons.warning, color: Colors.red, size: 14),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Belum Diupload',
-                        style: TextStyle(
-                          color: Colors.red,
-                          fontWeight: FontWeight.w500,
-                          fontSize: 11,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    'Silakan pilih file untuk diupload',
-                    style: TextStyle(
-                      color: Colors.grey[500],
-                      fontSize: 9,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // UPLOAD/GANTI BUTTON
-              SizedBox(
-                width: 80,
-                height: 36,
-                child: ElevatedButton(
-                  onPressed: isUploading ? null : () => _showImageSourceDialog(type, title),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: isUploadedToServer ? Colors.green : 
-                                  hasLocalFile ? Colors.orange : color,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                  ),
-                  child: isUploading
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : Text(
-                          isUploadedToServer ? '✓ Uploaded' :  // ✅ UBAH JADI "Uploaded"
-                          hasLocalFile ? 'Upload' : 'Pilih',
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                ),
-              ),
-              if (hasLocalFile && !isUploadedToServer) ...[
-                const SizedBox(height: 4),
+                // UPLOAD/GANTI BUTTON
                 SizedBox(
                   width: 80,
-                  height: 28,
-                  child: OutlinedButton(
-                    onPressed: isUploading ? null : () => _clearFile(type, title),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.red,
-                      side: const BorderSide(color: Colors.red),
+                  height: 36,
+                  child: ElevatedButton(
+                    onPressed: isUploading ? null : () => _showImageSourceDialog(type, title),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: isUploadedToServer ? Colors.green : 
+                                    hasLocalFile ? Colors.orange : color,
+                      foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(6),
                       ),
                       padding: const EdgeInsets.symmetric(horizontal: 8),
                     ),
-                    child: const Text(
-                      'Hapus',
-                      style: TextStyle(fontSize: 10),
-                    ),
+                    child: isUploading
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : Text(
+                            isUploadedToServer ? '✓ Verified' : 
+                            hasLocalFile ? 'Upload' : 'Pilih',
+                            style: const TextStyle(fontSize: 12),
+                          ),
                   ),
                 ),
+                if (hasLocalFile && !isUploadedToServer) ...[
+                  const SizedBox(height: 4),
+                  SizedBox(
+                    width: 80,
+                    height: 28,
+                    child: OutlinedButton(
+                      onPressed: isUploading ? null : () => _clearFile(type, title),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.red,
+                        side: const BorderSide(color: Colors.red),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                      ),
+                      child: const Text(
+                        'Hapus',
+                        style: TextStyle(fontSize: 10),
+                      ),
+                    ),
+                  ),
+                ],
               ],
-            ],
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
 
-// ✅ FIX: GET DOCUMENT STATUS DENGAN VERIFIKASI TERPISAH
+// ✅ FIX: GET DOCUMENT SERVER STATUS - SAMA PERSIS DENGAN UPLOAD_DOKUMEN_SCREEN
 Map<String, dynamic> _getDocumentServerStatus(String type) {
   String? documentUrl;
   
@@ -1534,6 +1283,7 @@ Map<String, dynamic> _getDocumentServerStatus(String type) {
       break;
   }
   
+  // ✅ GUNAKAN LOGIC YANG SAMA PERSIS: CEK .jpg BUKAN http
   final isUploaded = documentUrl != null && 
                     documentUrl.toString().isNotEmpty && 
                     documentUrl != 'uploaded' &&
@@ -1568,7 +1318,7 @@ void _showSafeSnackBar(String message, {bool isError = false, int duration = 3})
   }
 }
 
-// ✅ FIX: STATUS VERIFIKASI YANG BENAR - CEK UPLOAD & VERIFIKASI TERPISAH
+// ✅ INTEGRASI: CEK STATUS DOKUMEN YANG LEBIH AKURAT
 bool _isDocumentUploadedToServer(String type) {
   String? documentUrl;
   
@@ -1586,18 +1336,25 @@ bool _isDocumentUploadedToServer(String type) {
   
   print('🔍 Document $type check: $documentUrl');
   
-  // ✅ CEK APAKAH FILE SUDAH DIUPLOAD
+  // ✅ FIX: CEK LEBIH DETAIL
   if (documentUrl == null || documentUrl.toString().isEmpty) {
     return false;
   }
   
   final urlString = documentUrl.toString();
   
-  // ✅ FILE DIANGGAP UPLOADED JIKA ADA FILENAME
-  final isUploaded = (urlString.contains('.jpg') || 
-                     urlString.contains('.jpeg') || 
-                     urlString.contains('.png')) ||
-                     urlString == 'uploaded';
+  // ✅ CEK BERBAGAI KONDISI YANG MENANDAKAN SUDAH UPLOAD
+  final isUploaded = 
+      // Ada filename dengan extension image
+      (urlString.contains('.jpg') || 
+       urlString.contains('.jpeg') || 
+       urlString.contains('.png')) ||
+      // Atau status uploaded
+      urlString == 'uploaded' ||
+      // Atau mengandung string tertentu
+      urlString.contains('upload') ||
+      // Atau panjang string menandakan filename
+      (urlString.length > 10 && !urlString.contains('null'));
   
   print('   → Uploaded: $isUploaded');
   return isUploaded;
@@ -1889,8 +1646,10 @@ Future<void> _refreshProfile() async {
 }
 
 
-// ✅ FIX: BUILD PROFILE HEADER DENGAN CUSTOM IMAGE HANDLING
+// ✅ UPDATE PROFILE HEADER UNTUK TAMPILKAN STATUS
 Widget _buildProfileHeader() {
+  final userStatus = _currentUser['status_user'] ?? 0;
+  final isVerified = userStatus == 1 || userStatus == '1';
   return Center(
     child: Column(
       children: [
@@ -1970,17 +1729,20 @@ Widget _buildProfileHeader() {
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 8),
+        // ✅ UPDATE BADGE STATUS
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
           decoration: BoxDecoration(
-            color: Colors.green[50],
+            color: isVerified ? Colors.green[50] : Colors.orange[50],
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.green[200]!),
+            border: Border.all(
+              color: isVerified ? Colors.green[200]! : Colors.orange[200]!
+            ),
           ),
           child: Text(
-            'Anggota Aktif',
+            isVerified ? 'Anggota Terverifikasi' : 'Menunggu Verifikasi',
             style: TextStyle(
-              color: Colors.grey[800],
+              color: isVerified ? Colors.green[800] : Colors.orange[800],
               fontWeight: FontWeight.w600,
               fontSize: 12,
             ),
@@ -2017,6 +1779,184 @@ Widget _buildProfileImageWithErrorHandling() {
       child: ClipOval(
         child: _buildSafeProfileImage(),
       ),
+    ),
+  );
+}
+
+// ✅ FIX: CEK STATUS USER DARI MULTIPLE SOURCE
+Widget _buildUserStatusBanner() {
+  // ✅ CEK DARI SEMUA SUMBER YANG MUNGKIN
+  final userStatus = _currentUser['status_user'] ?? 
+                    _currentUser['status'] ?? 
+                    widget.user['status_user'] ?? 
+                    widget.user['status'] ?? 0;
+  
+  final isVerified = userStatus == 1 || userStatus == '1';
+  
+  print('🎯 User Status Check in Profile:');
+  print('   - _currentUser status_user: ${_currentUser['status_user']}');
+  print('   - _currentUser status: ${_currentUser['status']}');
+  print('   - widget.user status_user: ${widget.user['status_user']}');
+  print('   - widget.user status: ${widget.user['status']}');
+  print('   - Final: $userStatus → Verified: $isVerified');
+  
+  if (isVerified) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.green[50],
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.green),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.verified_user, color: Colors.green[700], size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Akun Terverifikasi ✅',
+                  style: TextStyle(
+                    color: Colors.green[700],
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+                Text(
+                  'Selamat! Akun Anda sudah aktif dan dapat menggunakan semua fitur',
+                  style: TextStyle(
+                    color: Colors.green[600],
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  } else {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.orange[50],
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.orange),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.schedule, color: Colors.orange[700], size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Menunggu Verifikasi Admin',
+                  style: TextStyle(
+                    color: Colors.orange[700],
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+                Text(
+                  'Dokumen akan diverifikasi dalam 1x24 jam. Anda tetap dapat menggunakan aplikasi',
+                  style: TextStyle(
+                    color: Colors.orange[600],
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ✅ VERIFICATION TIMELINE UNTUK STATUS 0
+Widget _buildVerificationTimeline() {
+  final userStatus = _currentUser['status_user'] ?? 0;
+  final isVerified = userStatus == 1 || userStatus == '1';
+  
+  return Container(
+    padding: const EdgeInsets.all(16),
+    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.grey.withOpacity(0.1),
+          blurRadius: 4,
+          offset: const Offset(0, 2),
+        ),
+      ],
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Proses Verifikasi',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Colors.green[800],
+            fontSize: 16,
+          ),
+        ),
+        const SizedBox(height: 12),
+        _buildTimelineStep(1, 'Upload Dokumen', true, Icons.cloud_upload),
+        _buildTimelineStep(2, 'Review Admin', isVerified, Icons.verified_user),
+        _buildTimelineStep(3, 'Aktif', isVerified, Icons.check_circle),
+      ],
+    ),
+  );
+}
+
+Widget _buildTimelineStep(int step, String title, bool isCompleted, IconData icon) {
+  return Padding(
+    padding: const EdgeInsets.symmetric(vertical: 8),
+    child: Row(
+      children: [
+        Container(
+          width: 30,
+          height: 30,
+          decoration: BoxDecoration(
+            color: isCompleted ? Colors.green : Colors.grey[300],
+            shape: BoxShape.circle,
+          ),
+          child: Center(
+            child: isCompleted
+                ? Icon(icon, color: Colors.white, size: 16)
+                : Text(
+                    '$step',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            title,
+            style: TextStyle(
+              fontWeight: FontWeight.w500,
+              color: isCompleted ? Colors.green[800] : Colors.grey[600],
+              fontSize: 14,
+            ),
+          ),
+        ),
+        if (isCompleted)
+          Icon(Icons.check_circle, color: Colors.green, size: 20),
+      ],
     ),
   );
 }
@@ -2411,186 +2351,18 @@ void _showProfilePhotoOptions() {
   );
 }
 
-  // ✅ BUILD DOCUMENTS SECTION - HANYA 3 FILE YANG DITAMPILKAN
-  Widget _buildDocumentsSection() {
-    final allFilesComplete = _storageService.isAllFilesComplete;
-    final uploadedCount = _countUploadedDocuments();
 
-    print('📊 Document Section - Uploaded: $uploadedCount/3, All Complete: $allFilesComplete');
 
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.folder_open, color: Colors.orange[700]),
-                const SizedBox(width: 8),
-                const Text(
-                  'Dokumen Wajib',
-                  style: TextStyle(
-                    fontSize: 18, 
-                    fontWeight: FontWeight.bold
-                  ),
-                ),
-                const Spacer(),
-                Text(
-                  '$uploadedCount/3',
-                  style: TextStyle(
-                    color: uploadedCount == 3 ? Colors.green[700] : Colors.orange[700],
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                  ),
-                ),
-              ],
-            ),
-            const Divider(height: 20),
-            
-// ✅ UBAH TEKS PROGRESS MENJADI "Menunggu Verifikasi"
-Row(
-  mainAxisAlignment: MainAxisAlignment.center,
-  children: [
-    _buildProgressStep(1, 'KTP', _getDocumentServerStatus('ktp')['uploaded']),
-    Container(
-      width: 20, 
-      height: 2, 
-      color: _getDocumentServerStatus('ktp')['uploaded'] ? Colors.orange : Colors.grey[300] // ✅ UBAH WARNA
-    ),
-    _buildProgressStep(2, 'KK', _getDocumentServerStatus('kk')['uploaded']),
-    Container(
-      width: 20, 
-      height: 2, 
-      color: _getDocumentServerStatus('kk')['uploaded'] ? Colors.orange : Colors.grey[300] // ✅ UBAH WARNA
-    ),
-    _buildProgressStep(3, 'Diri', _getDocumentServerStatus('diri')['uploaded']),
-  ],
-),
-            const SizedBox(height: 20),
-
-            // KTP CARD
-            _buildDokumenCard(
-              type: 'ktp',
-              title: 'KTP (Kartu Tanda Penduduk)',
-              description: 'Upload foto KTP yang jelas dan terbaca\n• Pastikan foto tidak blur\n• Semua informasi terbaca jelas\n• Format JPG/PNG (max 5MB)',
-              icon: Icons.credit_card,
-              color: Colors.blue,
-            ),
-            const SizedBox(height: 16),
-
-            // KK CARD
-            _buildDokumenCard(
-              type: 'kk',
-              title: 'Kartu Keluarga (KK)',
-              description: 'Upload foto KK yang jelas dan terbaca\n• Pastikan foto tidak blur\n• Semua halaman penting terbaca\n• Format JPG/PNG (max 5MB)',
-              icon: Icons.family_restroom,
-              color: Colors.green,
-            ),
-            const SizedBox(height: 16),
-
-            // FOTO DIRI CARD
-            _buildDokumenCard(
-              type: 'diri',
-              title: 'Foto Diri Terbaru',
-              description: 'Upload pas foto terbaru\n• Latar belakang polos\n• Wajah terlihat jelas\n• Ekspresi netral\n• Format JPG/PNG (max 5MB)',
-              icon: Icons.person,
-              color: Colors.orange,
-            ),
-            const SizedBox(height: 20),
-
-            // UPLOAD MANUAL SECTION
-            _buildUploadManualSection(),
-
-            // UPLOAD STATUS
-            if (_storageService.isUploading) ...[
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.blue[50],
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.blue[200]!),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.blue[700],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      _storageService.uploadMessage,
-                      style: TextStyle(
-                        color: Colors.blue[700],
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-
-            // INFO STATUS
-            const SizedBox(height: 12),
-Container(
-  padding: const EdgeInsets.all(12),
-  decoration: BoxDecoration(
-    color: Colors.orange[50],
-    borderRadius: BorderRadius.circular(8),
-    border: Border.all(color: Colors.orange[200]!),
-  ),
-  child: Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Row(
-        children: [
-          Icon(Icons.info_outline, color: Colors.orange[700], size: 16),
-          const SizedBox(width: 8),
-          Text(
-            'Status Dokumen:',
-            style: TextStyle(
-              color: Colors.orange[700],
-              fontWeight: FontWeight.bold,
-              fontSize: 12,
-            ),
-          ),
-        ],
-      ),
-      const SizedBox(height: 4),
-      Text(
-        '• Oranye: Menunggu verifikasi admin\n• Oranye: File lokal, belum diupload\n• Merah: Belum ada file',
-        style: TextStyle(
-          color: Colors.orange[700],
-          fontSize: 10,
-        ),
-      ),
-    ],
-  ),
-),
-          ],
-        ),
-      ),
-    );
+  // ✅ HELPER: COUNT UPLOADED DOCUMENTS - GUNAKAN LOGIC YANG SAMA
+  int _countUploadedDocuments() {
+    int count = 0;
+    if (_isDocumentUploadedToServer('ktp')) count++;
+    if (_isDocumentUploadedToServer('kk')) count++;
+    if (_isDocumentUploadedToServer('diri')) count++;
+    return count;
   }
 
-// ✅ HELPER: COUNT UPLOADED DOCUMENTS - GUNAKAN LOGIC YANG SAMA
-int _countUploadedDocuments() {
-  int count = 0;
-  if (_isDocumentUploadedToServer('ktp')) count++;
-  if (_isDocumentUploadedToServer('kk')) count++;
-  if (_isDocumentUploadedToServer('diri')) count++;
-  return count;
-}
-
+// ✅ FIX: BUILD PERSONAL INFO DENGAN KEY YANG BENAR
 Widget _buildPersonalInfoSection() {
   return Card(
     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -2614,13 +2386,13 @@ Widget _buildPersonalInfoSection() {
             ],
           ),
           const Divider(height: 20),
-          // ✅ UPDATE DENGAN DATA DARI DEBUG: kiki aja, 081212345665, mbg, ciamis, 13/11/2007
-          _buildInfoTile(Icons.person, 'Username', _currentUser['username'] ?? 'kiki'),
-          _buildInfoTile(Icons.phone, 'Nomor Telepon', _currentUser['telp'] ?? _currentUser['phone'] ?? '081212345665'),
-          _buildInfoTile(Icons.work, 'Pekerjaan', _currentUser['job'] ?? _currentUser['pekerjaan'] ?? 'mbg'),
-          _buildInfoTile(Icons.place, 'Tempat Lahir', _currentUser['birth_place'] ?? _currentUser['tempat_lahir'] ?? 'ciamis'),
+          // ✅ FIX: GUNAKAN KEY YANG BENAR
+          _buildInfoTile(Icons.person, 'Username', _currentUser['username'] ?? '-'),
+          _buildInfoTile(Icons.phone, 'Nomor Telepon', _currentUser['telp'] ?? _currentUser['phone'] ?? '-'),
+          _buildInfoTile(Icons.work, 'Pekerjaan', _currentUser['job'] ?? _currentUser['pekerjaan'] ?? '-'),
+          _buildInfoTile(Icons.place, 'Tempat Lahir', _currentUser['birth_place'] ?? _currentUser['tempat_lahir'] ?? 'Belum diisi'),
           _buildInfoTile(Icons.cake, 'Tanggal Lahir', 
-            _formatTanggalLahir(_currentUser['birth_date'] ?? _currentUser['tanggal_lahir']) ?? '13/11/2007'),
+            _formatTanggalLahir(_currentUser['birth_date'] ?? _currentUser['tanggal_lahir']) ?? 'Belum diisi'),
         ],
       ),
     ),
@@ -3170,6 +2942,26 @@ Widget? _getProfilePlaceholder() {
 @override
 Widget build(BuildContext context) {
 
+  // ✅ FIX: AMBIL STATUS DARI SEMUA SUMBER
+  final userStatus = _currentUser['status_user'] ?? 
+                    _currentUser['status'] ?? 
+                    widget.user['status_user'] ?? 
+                    widget.user['status'] ?? 0;
+  
+  final isVerified = userStatus == 1 || userStatus == '1';
+  
+  print('🎯 BUILD PROFILE - Status Debug:');
+  print('   - _currentUser keys: ${_currentUser.keys}');
+  print('   - widget.user keys: ${widget.user.keys}');
+  print('   - Final Status: $userStatus → Verified: $isVerified');
+    // ✅ DEBUG: TAMPILKAN SEMUA DATA SETIAP KALI BUILD
+  _debugAllUserData();
+  // ✅ TAMBAHKAN DEBUG LOG SETIAP KALI BUILD DIPANGGIL
+  print('🔄 BUILD METHOD CALLED - _isLoading: $_isLoading, UserData: ${_currentUser.isNotEmpty}');
+  print('   - username: ${_currentUser['username']}');
+  print('   - nama: ${_currentUser['nama']}');
+  print('   - email: ${_currentUser['email']}');
+
   if (_isLoading) {
     return Scaffold(
       appBar: AppBar(
@@ -3322,13 +3114,16 @@ Widget build(BuildContext context) {
               ),
             ],
 
-            // ✅ PROFILE HEADER
+            // ✅ PROFILE HEADER (existing)
             _buildProfileHeader(),
 
-            const SizedBox(height: 30),
+            // ✅ TAMBAH USER STATUS BANNER DI SINI
+            _buildUserStatusBanner(),
 
-            // ✅ DOKUMEN SECTION
-            _buildDocumentsSection(),
+            const SizedBox(height: 16),
+
+            // ✅ TAMBAH VERIFICATION TIMELINE UNTUK STATUS 0
+            if (!isVerified) _buildVerificationTimeline(),
 
             const SizedBox(height: 16),
 

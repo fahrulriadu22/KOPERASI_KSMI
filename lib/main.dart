@@ -6,6 +6,7 @@ import 'screens/dashboard_main.dart';
 import 'screens/upload_dokumen_screen.dart';
 import 'services/api_service.dart';
 import 'services/firebase_service.dart';
+import 'package:workmanager/workmanager.dart';
 
 // Global keys
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -15,10 +16,55 @@ final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey =
 // Firebase Service Instance
 final FirebaseService firebaseService = FirebaseService();
 
+// ✅ WORKMANAGER CALLBACK DISPATCHER
+@pragma('vm:entry-point')
+void callbackDispatcher() {
+  Workmanager().executeTask((task, inputData) async {
+    print("🔄 Native background task: $task");
+    
+    try {
+      // Initialize Firebase untuk background task
+      await Firebase.initializeApp();
+      
+      switch (task) {
+        case 'inbox-sync-task':
+          await firebaseService.triggerManualSync();
+          print("✅ Background inbox sync completed");
+          break;
+          
+        case 'notification-check-task':
+          await firebaseService.checkPendingNotifications();
+          print("✅ Background notification check completed");
+          break;
+          
+        default:
+          print("⚠️ Unknown background task: $task");
+      }
+      
+      return true;
+    } catch (e) {
+      print("❌ Background task failed: $e");
+      return false;
+    }
+  });
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
   print('🚀 STARTING KOPERASI KSMI APP...');
+  
+  // ✅ INITIALIZE WORKMANAGER UNTUK BACKGROUND SYNC
+  try {
+    print('🔄 Initializing WorkManager for background sync...');
+    Workmanager().initialize(
+      callbackDispatcher,
+      isInDebugMode: true, // Set false untuk production
+    );
+    print('✅ WorkManager initialized successfully');
+  } catch (e) {
+    print('❌ WorkManager initialization failed: $e');
+  }
   
   // Initialize SharedPreferences
   final SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -47,9 +93,42 @@ Future<void> _initializeAppServices() async {
     // Initialize Firebase Services
     await _initializeFirebaseServices();
     
+    // ✅ REGISTER BACKGROUND TASKS
+    await _registerBackgroundTasks();
+    
     print('✅ All app services initialized successfully');
   } catch (e) {
     print('❌ ERROR Initializing App Services: $e');
+  }
+}
+
+// ✅ REGISTER BACKGROUND TASKS
+Future<void> _registerBackgroundTasks() async {
+  try {
+    print('🔄 Registering background tasks...');
+    
+    // Periodic sync setiap 15 menit untuk inbox data
+    await Workmanager().registerPeriodicTask(
+      "inbox-sync-task",
+      "inbox-sync-task",
+      frequency: const Duration(minutes: 15),
+      constraints: Constraints(
+        networkType: NetworkType.connected,
+      ),
+      initialDelay: const Duration(seconds: 10),
+    );
+    
+    // Periodic check untuk pending notifications setiap 30 menit
+    await Workmanager().registerPeriodicTask(
+      "notification-check-task", 
+      "notification-check-task",
+      frequency: const Duration(minutes: 30),
+      initialDelay: const Duration(seconds: 30),
+    );
+    
+    print('✅ Background tasks registered successfully');
+  } catch (e) {
+    print('❌ Error registering background tasks: $e');
   }
 }
 
@@ -59,6 +138,10 @@ Future<void> _initializeFirebaseServices() async {
     print('🔄 Initializing Firebase Services...');
     await firebaseService.initialize();
     _setupNotificationCallbacks();
+    
+    // ✅ CHECK PENDING NOTIFICATIONS SAAT APP DIBUKA
+    await firebaseService.checkPendingNotifications();
+    
     print('✅ Firebase Services initialized successfully');
   } catch (e) {
     print('❌ Firebase Services initialization failed: $e');
@@ -74,6 +157,19 @@ void _setupNotificationCallbacks() {
   FirebaseService.onNotificationReceived = (Map<String, dynamic> data) {
     _handleNotificationData(data);
   };
+  
+  // ✅ ADD REAL-TIME UNREAD COUNT CALLBACK
+  FirebaseService.onUnreadCountUpdated = (int unreadCount) {
+    _handleUnreadCountUpdate(unreadCount);
+  };
+}
+
+// ✅ HANDLE REAL-TIME UNREAD COUNT UPDATES
+void _handleUnreadCountUpdate(int unreadCount) {
+  print('📱 Real-time unread count update: $unreadCount');
+  
+  // Bisa digunakan untuk update badge di home screen (jika menggunakan)
+  // Atau trigger global state update
 }
 
 void _handleNotificationNavigation(Map<String, dynamic> data) {
@@ -108,7 +204,8 @@ void _handleNotificationNavigation(Map<String, dynamic> data) {
             navigatorKey.currentState!.pushNamed('/profile');
             break;
           default:
-            navigatorKey.currentState!.pushNamed('/dashboard');
+            // ✅ FORCE REFRESH DASHBOARD JIKA SEDANG AKTIF
+            _forceDashboardRefresh();
             break;
         }
       }
@@ -117,6 +214,23 @@ void _handleNotificationNavigation(Map<String, dynamic> data) {
   } catch (e) {
     print('❌ Error handling notification navigation: $e');
   }
+}
+
+// ✅ FORCE DASHBOARD REFRESH
+void _forceDashboardRefresh() {
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    final currentContext = navigatorKey.currentState?.context;
+    if (currentContext != null) {
+      // Cek jika dashboard sedang aktif, trigger refresh
+      final currentRoute = ModalRoute.of(currentContext)?.settings.name;
+      if (currentRoute == '/dashboard' || currentRoute == '/') {
+        print('🔄 Force refreshing dashboard...');
+        // Bisa menggunakan event bus, provider, atau method channel
+        // Untuk sekarang kita trigger manual sync
+        firebaseService.triggerManualSync();
+      }
+    }
+  });
 }
 
 void _handleNotificationData(Map<String, dynamic> data) {
@@ -132,10 +246,34 @@ void _handleNotificationData(Map<String, dynamic> data) {
       if (scaffoldMessengerKey.currentState?.context != null) {
         scaffoldMessengerKey.currentState!.showSnackBar(
           SnackBar(
-            content: Text('$title: $body'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  body,
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ],
+            ),
             backgroundColor: Colors.green[700],
-            duration: const Duration(seconds: 3),
+            duration: const Duration(seconds: 4),
             behavior: SnackBarBehavior.floating,
+            action: SnackBarAction(
+              label: 'Buka',
+              textColor: Colors.white,
+              onPressed: () {
+                _forceDashboardRefresh();
+              },
+            ),
           ),
         );
       }
@@ -153,7 +291,7 @@ class KoperasiKSMIApp extends StatefulWidget {
   State<KoperasiKSMIApp> createState() => _KoperasiKSMIAppState();
 }
 
-class _KoperasiKSMIAppState extends State<KoperasiKSMIApp> {
+class _KoperasiKSMIAppState extends State<KoperasiKSMIApp> with WidgetsBindingObserver {
   final ApiService _apiService = ApiService();
   bool _isLoading = true;
   bool _isLoggedIn = false;
@@ -162,7 +300,82 @@ class _KoperasiKSMIAppState extends State<KoperasiKSMIApp> {
   @override
   void initState() {
     super.initState();
+    
+    // ✅ OBSERVE APP LIFECYCLE UNTUK BACKGROUND/FOREGROUND
+    WidgetsBinding.instance.addObserver(this);
+    
     _checkAuthStatus();
+  }
+
+  @override
+  void dispose() {
+    // ✅ REMOVE OBSERVER
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  // ✅ APP LIFECYCLE OBSERVER
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    print('📱 App lifecycle state: $state');
+    
+    switch (state) {
+      case AppLifecycleState.resumed:
+        // App kembali ke foreground
+        print('🔄 App resumed, checking for updates...');
+        _checkForBackgroundUpdates();
+        break;
+        
+      case AppLifecycleState.paused:
+        // App masuk background
+        print('⏸️ App paused, ensuring background sync...');
+        _ensureBackgroundSync();
+        break;
+        
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.detached:
+      case AppLifecycleState.hidden:
+        // States lainnya
+        break;
+    }
+  }
+
+  // ✅ CHECK FOR BACKGROUND UPDATES SAAT APP RESUME
+  Future<void> _checkForBackgroundUpdates() async {
+    try {
+      print('🔄 Checking for background updates...');
+      
+      // Check pending notifications
+      await firebaseService.checkPendingNotifications();
+      
+      // Trigger manual sync untuk data terbaru
+      await firebaseService.triggerManualSync();
+      
+      print('✅ Background updates check completed');
+    } catch (e) {
+      print('❌ Error checking background updates: $e');
+    }
+  }
+
+  // ✅ ENSURE BACKGROUND SYNC SAAT APP PAUSED
+  Future<void> _ensureBackgroundSync() async {
+    try {
+      print('🔄 Ensuring background sync is active...');
+      
+      // WorkManager sudah handle periodic tasks
+      // Kita bisa trigger immediate sync jika perlu
+      if (_isLoggedIn) {
+        Workmanager().registerOneOffTask(
+          "immediate-sync-task",
+          "inbox-sync-task",
+          initialDelay: const Duration(seconds: 5),
+        );
+      }
+      
+      print('✅ Background sync ensured');
+    } catch (e) {
+      print('❌ Error ensuring background sync: $e');
+    }
   }
 
   Future<void> _checkAuthStatus() async {
@@ -206,26 +419,25 @@ class _KoperasiKSMIAppState extends State<KoperasiKSMIApp> {
     }
   }
 
-Future<void> _subscribeToUserTopics(Map<String, dynamic> userData) async {
-  try {
-    final userId = userData['user_id']?.toString() ?? userData['id']?.toString();
-    if (userId != null && userId.isNotEmpty) {
-      print('🔔 Subscribing to topics for user: $userId');
-      
-      // Subscribe ke topic user spesifik dan topic umum
-      await firebaseService.subscribeToTopic('user_$userId');
-      await firebaseService.subscribeToTopic('koperasi_ksmi');
-      await firebaseService.subscribeToTopic('all_users');
-      
-      print('✅ Subscribed to topics successfully for user: $userId');
-    } else {
-      print('⚠️ User ID not found, skipping topic subscription');
+  Future<void> _subscribeToUserTopics(Map<String, dynamic> userData) async {
+    try {
+      final userId = userData['user_id']?.toString() ?? userData['id']?.toString();
+      if (userId != null && userId.isNotEmpty) {
+        print('🔔 Subscribing to topics for user: $userId');
+        
+        // Subscribe ke topic user spesifik dan topic umum
+        await firebaseService.subscribeToTopic('user_$userId');
+        await firebaseService.subscribeToTopic('koperasi_ksmi');
+        await firebaseService.subscribeToTopic('all_users');
+        
+        print('✅ Subscribed to topics successfully for user: $userId');
+      } else {
+        print('⚠️ User ID not found, skipping topic subscription');
+      }
+    } catch (e) {
+      print('❌ ERROR subscribing to topics: $e');
     }
-  } catch (e) {
-    print('❌ ERROR subscribing to topics: $e');
-    // Jangan throw error di sini agar tidak mengganggu flow aplikasi
   }
-}
 
   void _handleLoginSuccess(Map<String, dynamic> userData) {
     print('🎉 Login success callback triggered');
@@ -310,6 +522,15 @@ Future<void> _subscribeToUserTopics(Map<String, dynamic> userData) async {
         } catch (e) {
           print('❌ Error unsubscribing from topic: $e');
         }
+      }
+      
+      // ✅ CANCEL BACKGROUND TASKS SAAT LOGOUT
+      try {
+        await Workmanager().cancelByTag("inbox-sync-task");
+        await Workmanager().cancelByTag("notification-check-task");
+        print('✅ Background tasks cancelled');
+      } catch (e) {
+        print('⚠️ Error cancelling background tasks: $e');
       }
       
       final logoutResult = await _apiService.logout();
@@ -524,12 +745,5 @@ Future<void> _subscribeToUserTopics(Map<String, dynamic> userData) async {
       ),
       useMaterial3: true,
     );
-  }
-
-  @override
-  void dispose() {
-    print('🧹 Disposing KoperasiKSMIApp...');
-    firebaseService.dispose();
-    super.dispose();
   }
 }

@@ -22,7 +22,7 @@ android {
 
     defaultConfig {
         applicationId = "com.ksmi.koperasi"
-        minSdk = 21
+        minSdk = flutter.minSdkVersion
         targetSdk = 33
         versionCode = 1
         versionName = "1.0.0"
