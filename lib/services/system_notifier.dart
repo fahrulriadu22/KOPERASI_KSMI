@@ -586,7 +586,7 @@ Laporan lengkap dapat diakses di menu Laporan.
       return [];
     }
   }
-
+ 
   // ✅ CHECK NOTIFICATION PERMISSION
   Future<bool> checkNotificationPermission() async {
     try {
