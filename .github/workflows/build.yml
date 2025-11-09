@@ -41,6 +41,11 @@ jobs:
 
     - name: Get dependencies
       run: flutter pub get
+    
+    - name: Fix bigLargeIcon null ambiguity
+      run: |
+        sed -i 's/bigLargeIcon(null)/bigLargeIcon((android.graphics.Bitmap) null)/' $HOME/.pub-cache/hosted/pub.dev/flutter_local_notifications-16.2.0/android/src/main/java/com/dexterous/flutterlocalnotifications/FlutterLocalNotificationsPlugin.java
+
       
     - name: Build release APK
       run: flutter build apk --release --no-tree-shake-icons
