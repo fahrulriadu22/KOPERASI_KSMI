@@ -6,10 +6,9 @@ plugins {
 }
 
 android {
-    namespace = "com.ksmi.koperasi"
+    namespace = "com.example.koperasi_ksmi"
+    compileSdk = 36
 
-    // ✅ Gunakan compileSdk eksplisit agar build lebih konsisten
-    compileSdk = 33
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -23,12 +22,11 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.ksmi.koperasi"
-        minSdk = 23        // ✅ pastikan sama dengan minSdkVersion di pubspec
-        targetSdk = 33
-        versionCode = 1
-        versionName = "1.0.0"
-        multiDexEnabled = true
+        applicationId = "com.example.koperasi_ksmi"
+        minSdk = 21
+        targetSdk = 36
+        versionCode = flutterVersionCode.toInt()
+        versionName = flutterVersionName
     }
 
     buildTypes {
