@@ -6,10 +6,21 @@ plugins {
 }
 
 android {
-    namespace = "com.example.koperasi_ksmi"
+    namespace = "com.ksmi.koperasi"
     compileSdk = 36
 
-    ndkVersion = flutter.ndkVersion
+    // ✅ ambil versi dari local.properties (fix unresolved reference)
+    val flutterVersionCode = project.findProperty("flutterVersionCode")?.toString()?.toIntOrNull() ?: 1
+    val flutterVersionName = project.findProperty("flutterVersionName")?.toString() ?: "1.0.0"
+
+    defaultConfig {
+        applicationId = "com.ksmi.koperasi"
+        minSdk = 21
+        targetSdk = 36
+        versionCode = flutterVersionCode
+        versionName = flutterVersionName
+        multiDexEnabled = true
+    }
 
     compileOptions {
         isCoreLibraryDesugaringEnabled = true
@@ -18,28 +29,16 @@ android {
     }
 
     kotlinOptions {
-        jvmTarget = "11"
-    }
-
-    defaultConfig {
-        applicationId = "com.example.koperasi_ksmi"
-        minSdk = 21
-        targetSdk = 36
-        versionCode = flutterVersionCode.toInt()
-        versionName = flutterVersionName
+        jvmTarget = JavaVersion.VERSION_11.toString()
     }
 
     buildTypes {
         release {
-            // ⚠️ Gunakan keystore release sendiri nanti, bukan debug
             signingConfig = signingConfigs.getByName("debug")
             isMinifyEnabled = false
             isShrinkResources = false
         }
     }
-
-    // ✅ Pastikan Flutter resource path tetap benar
-    sourceSets["main"].java.srcDirs("src/main/kotlin")
 }
 
 flutter {
