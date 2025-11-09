@@ -1,14 +1,14 @@
 buildscript {
     val kotlinVersion = "1.9.24"
-    
+
     repositories {
         google()
         mavenCentral()
     }
 
     dependencies {
-        // ✅ UPDATE GRADLE VERSION
-        classpath("com.android.tools.build:gradle:8.6.0")
+        // ✅ Stabil dan kompatibel untuk plugin notifikasi 16.x
+        classpath("com.android.tools.build:gradle:8.5.2")
         classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion")
         classpath("com.google.gms:google-services:4.4.2")
     }
@@ -22,13 +22,12 @@ allprojects {
 }
 
 rootProject.buildDir = file("../build")
+
 subprojects {
     project.buildDir = file("${rootProject.buildDir}/${project.name}")
-}
-subprojects {
     project.evaluationDependsOn(":app")
 }
 
-tasks.register("clean", Delete::class) {
+tasks.register<Delete>("clean") {
     delete(rootProject.buildDir)
 }
