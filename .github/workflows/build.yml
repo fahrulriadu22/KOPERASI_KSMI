@@ -1,4 +1,4 @@
-name: Build APK Koperasi KSMI
+name: Build Debug APK Koperasi KSMI
 
 on: 
   push:
@@ -22,36 +22,28 @@ jobs:
     - name: Install dependencies
       run: flutter pub get
 
-    # ✅ Tambahan: patch otomatis bug bigLargeIcon ambiguous
+    # ✅ Patch opsional (boleh dihapus kalau ga pakai notif)
     - name: Patch flutter_local_notifications BigPictureStyle bug
       run: |
-        FILE=$(find ~/.pub-cache -path "*/flutter_local_notifications-16.3.3/android/src/main/java/com/dexterous/flutterlocalnotifications/FlutterLocalNotificationsPlugin.java")
-        echo "🔧 Patching $FILE"
-        echo "🛠️ Updating compileSdk and targetSdk to 36..."
-        sed -i 's/compileSdkVersion [0-9]\+/compileSdkVersion 36/' android/app/build.gradle || true
-        sed -i 's/targetSdkVersion [0-9]\+/targetSdkVersion 36/' android/app/build.gradle || true
-        sed -i 's/compileSdk = [0-9]\+/compileSdk = 36/' android/app/build.gradle.kts || true
-        sed -i 's/targetSdk = [0-9]\+/targetSdk = 36/' android/app/build.gradle.kts || true
+        FILE=$(find ~/.pub-cache -path "*/flutter_local_notifications-16.3.3/android/src/main/java/com/dexterous/flutterlocalnotifications/FlutterLocalNotificationsPlugin.java" || true)
+        if [ -n "$FILE" ]; then
+          echo "🔧 Patching $FILE"
+          sed -i 's/bigLargeIcon(null)/bigLargeIcon((android.graphics.Bitmap) null)/' "$FILE"
+        else
+          echo "⚠️ flutter_local_notifications not found — skipping patch"
+        fi
 
     - name: Clean Flutter
       run: flutter clean
 
-    - name: Remove old cache
-      run: rm -rf ~/.pub-cache/hosted/pub.dev/flutter_local_notifications-*
-
     - name: Get dependencies
       run: flutter pub get
-    
-    - name: Fix bigLargeIcon null ambiguity
-      run: |
-        sed -i 's/bigLargeIcon(null)/bigLargeIcon((android.graphics.Bitmap) null)/' $HOME/.pub-cache/hosted/pub.dev/flutter_local_notifications-16.2.0/android/src/main/java/com/dexterous/flutterlocalnotifications/FlutterLocalNotificationsPlugin.java
-
       
-    - name: Build release APK
-      run: flutter build apk --release --no-tree-shake-icons
+    - name: Build debug APK
+      run: flutter build apk --debug --no-tree-shake-icons
         
-    - name: Upload APK
+    - name: Upload debug APK
       uses: actions/upload-artifact@v4
       with:
-        name: koperasi-ksmi-apk
-        path: build/app/outputs/flutter-apk/app-release.apk
+        name: koperasi-ksmi-debug-apk
+        path: build/app/outputs/flutter-apk/app-debug.apk
