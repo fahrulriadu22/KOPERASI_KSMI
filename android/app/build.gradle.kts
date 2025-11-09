@@ -9,23 +9,23 @@ plugins {
 }
 
 val keystorePropertiesFile = rootProject.file("key.properties")
-val keystoreProperties = java.util.Properties()
+val keystoreProperties = Properties()
 
 if (keystorePropertiesFile.exists()) {
-    keystoreProperties.load(java.io.FileInputStream(keystorePropertiesFile))
+    keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
 
 android {
     namespace = "com.ksmi.koperasi"
-    compileSdk = 34  // ✅ Aman sampai Android 14
+    compileSdk = 34
 
     val flutterVersionCode = project.findProperty("flutterVersionCode")?.toString()?.toIntOrNull() ?: 1
     val flutterVersionName = project.findProperty("flutterVersionName")?.toString() ?: "1.0.0"
 
     defaultConfig {
         applicationId = "com.ksmi.koperasi"
-        minSdk = 23             // ✅ Android 6.0+ (wajib utk Firebase/Notif modern)
-        targetSdk = 34          // ✅ Kompatibel dg Play Store
+        minSdk = 23
+        targetSdk = 34
         versionCode = flutterVersionCode
         versionName = flutterVersionName
         multiDexEnabled = true
