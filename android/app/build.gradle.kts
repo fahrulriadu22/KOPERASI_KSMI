@@ -20,7 +20,8 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace = "com.ksmi.koperasi"
-    compileSdk = 34
+    compileSdk = 36  // ✅ disarankan oleh log build
+    ndkVersion = "27.0.12077973"  // ✅ disarankan oleh log build
 
     val flutterVersionCode = project.findProperty("flutterVersionCode")?.toString()?.toIntOrNull() ?: 1
     val flutterVersionName = project.findProperty("flutterVersionName")?.toString() ?: "1.0.0"
@@ -28,7 +29,7 @@ android {
     defaultConfig {
         applicationId = "com.ksmi.koperasi"
         minSdk = 23
-        targetSdk = 34
+        targetSdk = 36
         versionCode = flutterVersionCode
         versionName = flutterVersionName
         multiDexEnabled = true
