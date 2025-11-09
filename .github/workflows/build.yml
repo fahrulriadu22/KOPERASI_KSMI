@@ -8,17 +8,17 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-
+    
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-
+      
     - name: Setup Flutter
       uses: subosito/flutter-action@v2
       with:
         channel: 'stable'
         cache: true
-
+        
     - name: Flutter doctor (cek environment)
       run: flutter doctor -v
 
@@ -29,27 +29,32 @@ jobs:
     - name: Clear old Flutter pub cache
       run: rm -rf ~/.pub-cache/hosted/pub.dev/flutter_local_notifications-*
 
-    # ✅ Patch bug flutter_local_notifications di SDK 36
+    # ✅ Patch bug BigPictureStyle di flutter_local_notifications (versi 16.2.0)
     - name: Patch flutter_local_notifications BigPictureStyle bug
       run: |
-        FILE=$(find ~/.pub-cache -path "*/flutter_local_notifications-16.3.3/android/src/main/java/com/dexterous/flutterlocalnotifications/FlutterLocalNotificationsPlugin.java" | head -n 1)
+        FILE=$(find ~/.pub-cache -path "*/flutter_local_notifications-16.2.0/android/src/main/java/com/dexterous/flutterlocalnotifications/FlutterLocalNotificationsPlugin.java" | head -n 1)
         if [ -f "$FILE" ]; then
           echo "🔧 Fixing BigPictureStyle null ambiguity in $FILE"
           sed -i 's/bigLargeIcon(null)/bigLargeIcon((android.graphics.Bitmap) null)/' "$FILE"
+        else
+          echo "⚠️ File not found, skipping patch."
         fi
 
-    # ✅ Pastikan compileSdk & targetSdk = 36 di project
-    - name: Ensure compileSdk/targetSdk version
+    # ✅ Pastikan compileSdk dan targetSdk diset ke 36
+    - name: Ensure compileSdk/targetSdk version 36
       run: |
+        sed -i 's/compileSdkVersion [0-9]\+/compileSdkVersion 36/' android/app/build.gradle || true
+        sed -i 's/targetSdkVersion [0-9]\+/targetSdkVersion 36/' android/app/build.gradle || true
         sed -i 's/compileSdk = [0-9]\+/compileSdk = 36/' android/app/build.gradle.kts || true
         sed -i 's/targetSdk = [0-9]\+/targetSdk = 36/' android/app/build.gradle.kts || true
 
-    - name: Flutter clean & rebuild
+    # ✅ Clean & rebuild dependencies
+    - name: Flutter clean & get dependencies
       run: |
         flutter clean
         flutter pub get
 
-    # ✅ Build APK release
+    # ✅ Build release APK
     - name: Build release APK
       run: flutter build apk --release --no-tree-shake-icons
 
