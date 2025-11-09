@@ -21,7 +21,14 @@ jobs:
         
     - name: Install dependencies
       run: flutter pub get
-        
+
+    # ✅ Tambahan: patch otomatis bug bigLargeIcon ambiguous
+    - name: Patch flutter_local_notifications BigPictureStyle bug
+      run: |
+        FILE=$(find ~/.pub-cache -path "*/flutter_local_notifications-16.3.3/android/src/main/java/com/dexterous/flutterlocalnotifications/FlutterLocalNotificationsPlugin.java")
+        echo "🔧 Patching $FILE"
+        sed -i 's/bigPictureStyle\.bigLargeIcon(null);/bigPictureStyle.bigLargeIcon((android.graphics.Bitmap) null);/' "$FILE"
+
     - name: Build APK Release
       run: flutter build apk --release
         
