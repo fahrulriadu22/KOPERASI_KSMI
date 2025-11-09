@@ -35,8 +35,13 @@ jobs:
 
     - name: Clean Flutter
       run: flutter clean
+
+    - name: Remove old cache
+      run: rm -rf ~/.pub-cache/hosted/pub.dev/flutter_local_notifications-*
+
     - name: Get dependencies
       run: flutter pub get
+      
     - name: Build release APK
       run: flutter build apk --release --no-tree-shake-icons
         

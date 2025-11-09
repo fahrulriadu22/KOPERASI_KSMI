@@ -25,6 +25,10 @@ dependencies:
   device_info_plus: ^12.0.0
   path_provider: ^2.1.5
   workmanager: ^0.9.0+3
+
+dependency_overrides:
+  flutter_local_notifications: 16.2.0
+  flutter_local_notifications_platform_interface: 7.1.0
   
 dev_dependencies:
   flutter_test:
