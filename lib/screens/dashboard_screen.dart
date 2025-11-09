@@ -4,6 +4,7 @@ import 'riwayat_angsuran_screen.dart';
 import '../services/api_service.dart';
 import '../services/firebase_service.dart';
 import '../services/system_notifier.dart';
+import 'profile_screen.dart';
 
 // ✅ CUSTOM SHAPE UNTUK APPBAR
 class NotchedAppBarShape extends ContinuousRectangleBorder {
@@ -93,6 +94,7 @@ void initState() {
   _activeMenuItems = List.from(_allMenuItems);
   _loadCurrentUser();
   _loadDataFromApi();
+  _checkUserStatus();
   _loadUnreadNotifications();
   
   // ✅ SETUP NOTIFICATION LISTENER
@@ -112,6 +114,54 @@ void dispose() {
   // firebaseService.stopPeriodicSync(); // Opsional
   
   super.dispose();
+}
+
+void _checkUserStatus() {
+  final userStatus = widget.user['status_user']?.toString() ?? '0';
+  final isVerified = userStatus == '1';
+  
+  print('🎯 Dashboard Access Check:');
+  print('   - User Status: $userStatus');
+  print('   - Verified: $isVerified');
+  
+  if (!isVerified) {
+    print('🚫 Access denied - User status: $userStatus, required: 1');
+    _showAccessDeniedDialog();
+  } else {
+    print('✅ Access granted - User sudah verified');
+  }
+}
+
+// ✅ PERBAIKI ACCESS DENIED DIALOG:
+void _showAccessDeniedDialog() {
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Akses Ditolak'),
+        content: const Text(
+          'Anda tidak memiliki akses ke dashboard. '
+          'Akun Anda masih menunggu verifikasi admin. '
+          'Silakan lengkapi dokumen dan tunggu verifikasi untuk mengakses dashboard.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              // Redirect ke profile screen
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (_) => ProfileScreen(user: widget.user)),
+                (route) => false,
+              );
+            },
+            child: const Text('Ke Profile'),
+          ),
+        ],
+      ),
+    );
+  });
 }
 
   // ✅ Load current user dari session management

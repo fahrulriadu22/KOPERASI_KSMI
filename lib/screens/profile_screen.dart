@@ -9,10 +9,12 @@ import '../services/temporary_storage_service.dart';
 import 'dart:ui' as ui; // Untuk decodeImageFromList
 import 'package:flutter/painting.dart'; // Untuk NetworkImage
 import '../services/file_validator.dart';
+import 'auth_wrapper.dart';
 import 'edit_profile_screen.dart';
 import 'package:flutter/foundation.dart'; // ✅ UNTUK kDebugMode
 import 'package:path_provider/path_provider.dart';
 import '../services/local_image_service.dart';
+import 'dashboard_screen.dart';
 
 
 // ✅ CUSTOM SHAPE UNTUK APPBAR
@@ -76,18 +78,37 @@ class _ProfileScreenState extends State<ProfileScreen> {
 @override
 void initState() {
   super.initState();
-    _currentUser = Map<String, dynamic>.from(widget.user);
+  _currentUser = Map<String, dynamic>.from(widget.user);
   
-  // ✅ LOAD DATA SEGERA SETELAH INIT
+  // ✅ CEK STATUS USER DAN REDIRECT JIKA SUDAH VERIFIED
+  _checkUserStatusAndRedirect();
+  
   WidgetsBinding.instance.addPostFrameCallback((_) {
     print('🔄 PostFrameCallback - Starting data load...');
     _initializeStorage();
     _loadCurrentUser();
     _syncProfileData();
-    
-    // ✅ CLEANUP OLD IMAGES (RUN IN BACKGROUND)
     _cleanupOldImages();
   });
+}
+
+// ✅ TAMBAHKAN METHOD INI:
+void _checkUserStatusAndRedirect() {
+  try {
+    final statusUser = _currentUser['status_user']?.toString() ?? '0';
+    final isVerified = statusUser == '1';
+    
+    print('🎯 ProfileScreen - User Status Check: $statusUser → Verified: $isVerified');
+    
+    if (isVerified) {
+      print('✅ User sudah verified, bisa akses dashboard');
+      // Tidak perlu redirect, biarkan user tetap di profile jika mau
+    } else {
+      print('⏳ User belum verified, hanya bisa akses profile');
+    }
+  } catch (e) {
+    print('❌ Error checking user status: $e');
+  }
 }
 
 // ✅ METHOD BARU: CLEANUP OLD IMAGES
@@ -1065,6 +1086,18 @@ void _checkAutoUpload() {
     );
   }
 
+  // ✅ TAMBAHKAN METHOD UNTUK KE DASHBOARD:
+void _goToDashboard() {
+  print('🚀 Navigating to Dashboard from Profile');
+  Navigator.pushAndRemoveUntil(
+    context,
+    MaterialPageRoute(
+      builder: (context) => DashboardScreen(user: _currentUser),
+    ),
+    (route) => false,
+  );
+}
+
 // ✅ BUILD DOKUMEN CARD - GUNAKAN LOGIC YANG SAMA
 Widget _buildDokumenCard({
   required String type,
@@ -1528,73 +1561,91 @@ String? _getDocumentServerUrl(String type) {
     );
   }
 
-  // ✅ LOGOUT METHODS
-  Future<void> _logout() async {
-    bool confirm = await showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Konfirmasi Logout'),
-        content: const Text('Apakah Anda yakin ingin logout dari aplikasi?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Batal', style: TextStyle(color: Colors.grey)),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Logout', style: TextStyle(color: Colors.red)),
-          ),
+// Di ProfileScreen - perbaiki method _logout
+Future<void> _logout() async {
+  bool confirm = await showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('Konfirmasi Logout'),
+      content: const Text('Apakah Anda yakin ingin logout dari aplikasi?'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: const Text('Batal', style: TextStyle(color: Colors.grey)),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(true),
+          child: const Text('Logout', style: TextStyle(color: Colors.red)),
+        ),
+      ],
+    ),
+  ) ?? false;
+
+  if (confirm && mounted) {
+    print('🚪 Logout confirmed from ProfileScreen');
+    
+    // ✅ OPTION 1: GUNAKAN CALLBACK DARI PARENT (AuthWrapper)
+    if (widget.onLogout != null) {
+      print('📞 Using parent logout callback');
+      widget.onLogout!();
+      return;
+    }
+    
+    // ✅ OPTION 2: DIRECT LOGOUT JIKA TIDAK ADA CALLBACK
+    print('🔐 Performing direct logout');
+    await _performDirectLogout();
+  }
+}
+
+// ✅ PERBAIKI DIRECT LOGOUT DENGAN ERROR HANDLING
+Future<void> _performDirectLogout() async {
+  if (!mounted) return;
+  
+  // Show loading
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (context) => const AlertDialog(
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          CircularProgressIndicator(),
+          SizedBox(height: 16),
+          Text('Sedang logout...'),
         ],
       ),
-    ) ?? false;
+    ),
+  );
 
-    if (confirm && mounted) {
-      if (widget.onLogout != null) {
-        widget.onLogout!();
-        return;
-      }
-      _performDirectLogout();
-    }
-  }
-
-  Future<void> _performDirectLogout() async {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const AlertDialog(
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CircularProgressIndicator(),
-            SizedBox(height: 16),
-            Text('Sedang logout...'),
-          ],
-        ),
-      ),
-    );
-
-    try {
-      final result = await _apiService.logout();
-      print('🔐 Logout result: $result');
+  try {
+    print('🔐 Calling API logout...');
+    final result = await _apiService.logout();
+    print('🔐 Logout API result: ${result['success']}');
+    
+    if (mounted) {
+      Navigator.pop(context); // Close loading dialog
       
-      if (mounted) {
-        Navigator.pop(context);
-        Navigator.of(context).pushNamedAndRemoveUntil(
-          '/login', 
-          (Route<dynamic> route) => false
-        );
-      }
-    } catch (e) {
-      print('❌ Logout error: $e');
-      if (mounted) {
-        Navigator.pop(context);
-        Navigator.of(context).pushNamedAndRemoveUntil(
-          '/login', 
-          (Route<dynamic> route) => false
-        );
-      }
+      // ✅ NAVIGASI YANG SAMA UNTUK SEMUA STATUS
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const AuthWrapper()),
+        (route) => false,
+      );
+    }
+  } catch (e) {
+    print('❌ Logout error: $e');
+    if (mounted) {
+      Navigator.pop(context); // Close loading dialog
+      
+      // ✅ FALLBACK: Tetap redirect ke AuthWrapper meski error
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const AuthWrapper()),
+        (route) => false,
+      );
     }
   }
+}
 
 // ✅ UPDATE: REFRESH PROFILE YANG LEBIH ROBUST DENGAN getUserInfo
 Future<void> _refreshProfile() async {
@@ -1780,6 +1831,77 @@ Widget _buildProfileImageWithErrorHandling() {
         child: _buildSafeProfileImage(),
       ),
     ),
+  );
+}
+
+// Di profile_screen.dart - tambahkan banner restriction
+Widget _buildStatusRestrictionBanner() {
+  final userStatus = _currentUser['status_user'] ?? 0;
+  
+  if (userStatus == 0) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.orange[50],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.orange),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Icon(Icons.info, color: Colors.orange[700]),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Akun Menunggu Verifikasi',
+                  style: TextStyle(
+                    color: Colors.orange[700],
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Saat ini Anda hanya dapat mengakses menu profile. '
+            'Setelah admin memverifikasi dokumen, Anda akan mendapatkan akses penuh ke dashboard.',
+            style: TextStyle(
+              color: Colors.orange[600],
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 12),
+          // ✅ TAMPILKAN PROGRESS VERIFIKASI
+          _buildVerificationProgress(),
+        ],
+      ),
+    );
+  }
+  
+  return const SizedBox.shrink();
+}
+
+Widget _buildVerificationProgress() {
+  return Column(
+    children: [
+      LinearProgressIndicator(
+        value: 0.5, // Progress 50% - sudah upload, menunggu verifikasi
+        backgroundColor: Colors.grey[300],
+        color: Colors.orange,
+      ),
+      const SizedBox(height: 8),
+      Text(
+        'Menunggu verifikasi admin...',
+        style: TextStyle(
+          color: Colors.orange[700],
+          fontSize: 12,
+        ),
+      ),
+    ],
   );
 }
 
@@ -2939,16 +3061,11 @@ Widget? _getProfilePlaceholder() {
     print('📋 User key copied to clipboard: ${userKey.substring(0, 10)}...');
   }
 
+// ✅ UPDATE BUILD METHOD - TAMBAHKAN FAB UNTUK KE DASHBOARD:
 @override
 Widget build(BuildContext context) {
-
-  // ✅ FIX: AMBIL STATUS DARI SEMUA SUMBER
-  final userStatus = _currentUser['status_user'] ?? 
-                    _currentUser['status'] ?? 
-                    widget.user['status_user'] ?? 
-                    widget.user['status'] ?? 0;
-  
-  final isVerified = userStatus == 1 || userStatus == '1';
+  final userStatus = _currentUser['status_user']?.toString() ?? '0';
+  final isVerified = userStatus == '1';
   
   print('🎯 BUILD PROFILE - Status Debug:');
   print('   - _currentUser keys: ${_currentUser.keys}');
@@ -3057,6 +3174,8 @@ Widget build(BuildContext context) {
         automaticallyImplyLeading: false,
         centerTitle: true,
         actions: [
+          // ✅ TAMBAH DASHBOARD BUTTON JIKA USER VERIFIED
+          if (isVerified)
           IconButton(
             icon: _isRefreshing 
                 ? const SizedBox(
@@ -3080,6 +3199,7 @@ Widget build(BuildContext context) {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
+          _buildStatusRestrictionBanner(),
 
             // ✅ ERROR MESSAGE
             if (_uploadError != null) ...[

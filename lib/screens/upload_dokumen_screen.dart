@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import '../services/api_service.dart';
 import '../services/temporary_storage_service.dart';
 import 'dashboard_main.dart';
+import 'profile_screen.dart';
 
 class UploadDokumenScreen extends StatefulWidget {
   final Map<String, dynamic> user;
@@ -635,6 +636,21 @@ class _UploadDokumenScreenState extends State<UploadDokumenScreen> {
     );
   }
 
+  // Di upload_dokumen_screen.dart - tambahkan method baru
+void _proceedBasedOnUserStatus() {
+  final userStatus = _currentUser['status_user'] ?? 0;
+  
+  print('🎯 Proceeding based on user status: $userStatus');
+  
+  if (userStatus == 0) {
+    // ✅ STATUS 0: KEMBALI KE PROFILE SCREEN
+    _proceedToProfileOnly();
+  } else {
+    // ✅ STATUS 1: KE DASHBOARD
+    _proceedToDashboard();
+  }
+}
+
   // ✅ PERBAIKAN: NAVIGATION KE DASHBOARD DENGAN SAFE CHECK
   void _proceedToDashboard() {
     print('🚀 Starting proceed to dashboard...');
@@ -691,48 +707,75 @@ class _UploadDokumenScreenState extends State<UploadDokumenScreen> {
     });
   }
 
-  // ✅ PERBAIKAN: DIALOG VERIFIKASI DENGAN SAFE CHECK
-  void _showVerificationDialog() {
-    if (!mounted) return;
-    
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.verified_user, color: Colors.green),
-            SizedBox(width: 8),
-            Text('Upload Berhasil'),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Dokumen Anda telah berhasil diupload ke server.',
-              style: TextStyle(fontSize: 14),
+// ✅ UPDATE: SHOW VERIFICATION DIALOG
+void _showVerificationDialog() {
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (context) => AlertDialog(
+      title: const Row(
+        children: [
+          Icon(Icons.verified_user, color: Colors.green),
+          SizedBox(width: 8),
+          Text('Upload Berhasil'),
+        ],
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Dokumen Anda telah berhasil diupload ke server dan sedang menunggu verifikasi admin.',
+            style: TextStyle(fontSize: 14),
+          ),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.orange[50],
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.orange),
             ),
-            const SizedBox(height: 16),
-            _buildVerificationStatusInfo(),
-          ],
-        ),
-        actions: [
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _proceedToDashboard();
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.green,
+            child: const Text(
+              '🔒 Status: Menunggu Verifikasi\n'
+              'Saat ini Anda hanya dapat mengakses menu profile. '
+              'Setelah diverifikasi, Anda akan mendapatkan akses penuh.',
+              style: TextStyle(fontSize: 12),
             ),
-            child: const Text('Lanjut ke Dashboard'),
           ),
         ],
       ),
-    );
-  }
+      actions: [
+        ElevatedButton(
+          onPressed: () {
+            Navigator.pop(context);
+            _proceedBasedOnUserStatus(); // ✅ GUNAKAN METHOD BARU
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.green,
+          ),
+          child: const Text('Lanjut ke Profile'),
+        ),
+      ],
+    ),
+  );
+}
+
+// ✅ METHOD BARU: KE PROFILE SAJA (UNTUK STATUS 0)
+void _proceedToProfileOnly() {
+  print('🚀 Navigating to ProfileScreen (status 0 restriction)');
+  
+  if (_isNavigating) return;
+  _isNavigating = true;
+
+  final updatedUser = Map<String, dynamic>.from(_currentUser);
+  
+  Navigator.pushAndRemoveUntil(
+    context,
+    MaterialPageRoute(builder: (_) => ProfileScreen(user: updatedUser)),
+    (route) => false,
+  );
+}
 
   // ✅ SHOW IMAGE SOURCE DIALOG dengan opsi kamera
   void _showImageSourceDialog(String type, String documentName) {

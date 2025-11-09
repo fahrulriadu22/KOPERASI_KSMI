@@ -7,6 +7,8 @@ import 'screens/upload_dokumen_screen.dart';
 import 'services/api_service.dart';
 import 'services/firebase_service.dart';
 import 'package:workmanager/workmanager.dart';
+import 'screens/auth_wrapper.dart';
+import 'screens/profile_screen.dart';
 
 // Global keys
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -439,61 +441,101 @@ class _KoperasiKSMIAppState extends State<KoperasiKSMIApp> with WidgetsBindingOb
     }
   }
 
-  void _handleLoginSuccess(Map<String, dynamic> userData) {
-    print('🎉 Login success callback triggered');
-    
-    setState(() {
-      _isLoggedIn = true;
-      _userData = userData;
-    });
-    
-    _subscribeToUserTopics(userData);
-    _checkDokumenStatusAndNavigate(userData);
-  }
+void _handleLoginSuccess(Map<String, dynamic> userData) {
+  print('🎉 Login success callback triggered');
+  
+  setState(() {
+    _isLoggedIn = true;
+    _userData = userData;
+  });
+  
+  _subscribeToUserTopics(userData);
+  
+  // ✅ LANGSUNG CEK STATUS DAN NAVIGATE
+  _checkUserStatusAndNavigate(userData);
+}
 
-  void _checkDokumenStatusAndNavigate(Map<String, dynamic> userData) {
-    try {
-      print('📄 Checking document status for navigation...');
-      
-      final fotoKtp = userData['foto_ktp']?.toString() ?? '';
-      final fotoKk = userData['foto_kk']?.toString() ?? '';
-      final fotoDiri = userData['foto_diri']?.toString() ?? '';
-      
-      final bool hasKTP = fotoKtp.isNotEmpty && fotoKtp != 'uploaded' && fotoKtp != 'null';
-      final bool hasKK = fotoKk.isNotEmpty && fotoKk != 'uploaded' && fotoKk != 'null';
-      final bool hasFotoDiri = fotoDiri.isNotEmpty && fotoDiri != 'uploaded' && fotoDiri != 'null';
-      
-      final bool allDokumenUploaded = hasKTP && hasKK && hasFotoDiri;
-      
-      print('''
-📄 Document Status Check:
+// ✅ METHOD BARU: CHECK STATUS DAN NAVIGATE
+void _checkUserStatusAndNavigate(Map<String, dynamic> userData) {
+  final statusUser = userData['status_user']?.toString() ?? '0';
+  final isVerified = statusUser == '1';
+  
+  print('🎯 Post-Login Status Check: $statusUser → Verified: $isVerified');
+  
+  if (isVerified) {
+    print('📱 Redirecting to Dashboard (Verified User)');
+    _navigateToDashboard(userData);
+  } else {
+    print('📱 Redirecting to Profile (Unverified User)');
+    _navigateToProfileOnly(userData);
+  }
+}
+
+void _checkDokumenStatusAndNavigate(Map<String, dynamic> userData) {
+  try {
+    print('📄 Checking document status for navigation...');
+    
+    final fotoKtp = userData['foto_ktp']?.toString() ?? '';
+    final fotoKk = userData['foto_kk']?.toString() ?? '';
+    final fotoDiri = userData['foto_diri']?.toString() ?? '';
+    final statusUser = userData['status_user']?.toString() ?? '0';
+    
+    final bool hasKTP = fotoKtp.isNotEmpty && fotoKtp != 'uploaded' && fotoKtp != 'null';
+    final bool hasKK = fotoKk.isNotEmpty && fotoKk != 'uploaded' && fotoKk != 'null';
+    final bool hasFotoDiri = fotoDiri.isNotEmpty && fotoDiri != 'uploaded' && fotoDiri != 'null';
+    
+    final bool allDokumenUploaded = hasKTP && hasKK && hasFotoDiri;
+    final bool isVerifiedUser = statusUser == '1';
+    
+    print('''
+📄 Document & Status Check:
   - KTP: $hasKTP ($fotoKtp)
   - KK: $hasKK ($fotoKk)  
   - Foto Diri: $hasFotoDiri ($fotoDiri)
+  - Status User: $statusUser
   - All Complete: $allDokumenUploaded
+  - Verified: $isVerifiedUser
 ''');
-      
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && navigatorKey.currentState?.context != null) {
-          if (!allDokumenUploaded) {
-            print('📱 Navigating to UploadDokumenScreen');
-            navigatorKey.currentState!.pushAndRemoveUntil(
-              MaterialPageRoute(
-                builder: (context) => UploadDokumenScreen(user: userData),
-              ),
-              (route) => false,
-            );
-          } else {
-            print('📱 Navigating directly to Dashboard');
-            _navigateToDashboard(userData);
-          }
+    
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && navigatorKey.currentState?.context != null) {
+        if (!allDokumenUploaded) {
+          print('📱 Navigating to UploadDokumenScreen');
+          navigatorKey.currentState!.pushAndRemoveUntil(
+            MaterialPageRoute(
+              builder: (context) => UploadDokumenScreen(user: userData),
+            ),
+            (route) => false,
+          );
+        } else if (isVerifiedUser) {
+          print('📱 ✅ User VERIFIED - Navigating to Dashboard');
+          _navigateToDashboard(userData);
+        } else {
+          print('📱 ⏳ User NOT VERIFIED - Navigating to Profile Only');
+          _navigateToProfileOnly(userData);
         }
-      });
-    } catch (e) {
-      print('❌ Error checking document status: $e');
-      _navigateToDashboard(userData);
-    }
+      }
+    });
+  } catch (e) {
+    print('❌ Error checking document status: $e');
+    // Default ke profile jika error
+    _navigateToProfileOnly(userData);
   }
+}
+
+// ✅ TAMBAHKAN METHOD INI:
+void _navigateToProfileOnly(Map<String, dynamic> userData) {
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    if (mounted && navigatorKey.currentState?.context != null) {
+      navigatorKey.currentState!.pushAndRemoveUntil(
+        MaterialPageRoute(
+          builder: (context) => ProfileScreen(user: userData),
+        ),
+        (route) => false,
+      );
+    }
+  });
+}
 
   void _navigateToDashboard(Map<String, dynamic> userData) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -584,27 +626,8 @@ class _KoperasiKSMIAppState extends State<KoperasiKSMIApp> with WidgetsBindingOb
       navigatorKey: navigatorKey,
       scaffoldMessengerKey: scaffoldMessengerKey,
       
-      routes: {
-        '/login': (context) => LoginScreen(onLoginSuccess: _handleLoginSuccess),
-        '/dashboard': (context) => DashboardMain(user: _userData),
-        '/upload_dokumen': (context) => UploadDokumenScreen(user: _userData),
-      },
-      
-      onGenerateRoute: (settings) {
-        print('🔄 Generating route for: ${settings.name}');
-        
-        return MaterialPageRoute(
-          builder: (context) => _isLoggedIn 
-              ? DashboardMain(user: _userData)
-              : LoginScreen(onLoginSuccess: _handleLoginSuccess),
-        );
-      },
-      
-      home: _isLoading
-          ? _buildLoadingScreen()
-          : _isLoggedIn
-              ? DashboardMain(user: _userData)
-              : LoginScreen(onLoginSuccess: _handleLoginSuccess),
+      // ✅ GUNAKAN AUTH WRAPPER SEBAGAI HOME
+      home: const AuthWrapper(),
     );
   }
 
