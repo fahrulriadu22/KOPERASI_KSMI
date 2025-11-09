@@ -8,11 +8,14 @@ plugins {
     id("com.google.gms.google-services")
 }
 
-val keystorePropertiesFile = rootProject.file("key.properties")
 val keystoreProperties = Properties()
+val keystorePropertiesFile = rootProject.file("key.properties")
 
 if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+    println("✅ Loaded keystore from ${keystorePropertiesFile.absolutePath}")
+} else {
+    println("⚠️ key.properties not found, using unsigned build")
 }
 
 android {
@@ -43,12 +46,17 @@ android {
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.create("release") {
-                storeFile = file(keystoreProperties["storeFile"] as String)
-                storePassword = keystoreProperties["storePassword"] as String
-                keyAlias = keystoreProperties["keyAlias"] as String
-                keyPassword = keystoreProperties["keyPassword"] as String
+            if (keystorePropertiesFile.exists()) {
+                signingConfig = signingConfigs.create("release") {
+                    storeFile = file(keystoreProperties["storeFile"]?.toString())
+                    storePassword = keystoreProperties["storePassword"]?.toString()
+                    keyAlias = keystoreProperties["keyAlias"]?.toString()
+                    keyPassword = keystoreProperties["keyPassword"]?.toString()
+                }
+            } else {
+                println("⚠️ Building unsigned release (no key.properties found).")
             }
+
             isMinifyEnabled = false
             isShrinkResources = false
         }
