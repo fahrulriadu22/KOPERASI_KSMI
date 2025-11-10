@@ -28,14 +28,6 @@ jobs:
     - name: Install dependencies
       run: flutter pub get
 
-    # ✅ PATCH UNTUK FLUTTER_LOCAL_NOTIFICATIONS BUG
-    - name: Patch flutter_local_notifications BigPictureStyle bug
-      run: |
-        find ~/.pub-cache -name "FlutterLocalNotificationsPlugin.java" -path "*/flutter_local_notifications-*/android/src/main/java/com/dexterous/flutterlocalnotifications/FlutterLocalNotificationsPlugin.java" | while read file; do
-          echo "🔧 Patching $file"
-          sed -i 's/bigLargeIcon(null)/bigLargeIcon((android.graphics.Bitmap) null)/' "$file"
-        done
-
     # ✅ UPDATE ANDROID SDK & NDK VERSION
     - name: Update Android SDK and NDK versions
       run: |
