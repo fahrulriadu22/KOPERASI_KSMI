@@ -1,4 +1,7 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<!-- ✅ TAMBAHKIN xmlns:tools DI BARIS PERTAMA -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    package="com.ksmi.koperasi">
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
@@ -16,7 +19,7 @@
     
     <application
         android:label="koperasi KSMI"
-        android:name=".Application" <!-- ✅ TAMBAHKAN APPLICATION CLASS -->
+        android:name="${applicationName}"  <!-- ✅ KEMBALIKAN KE DEFAULT -->
         android:icon="@mipmap/ic_launcher"
         android:requestLegacyExternalStorage="true"
         android:usesCleartextTraffic="true"
@@ -84,7 +87,7 @@
             android:name="io.flutter.plugins.firebase.messaging.FlutterFirebaseMessagingBackgroundService"
             android:exported="false" />
         
-        <!-- ✅ WORKMANAGER CONFIGURATION -->
+        <!-- ✅ WORKMANAGER CONFIGURATION - FIXED -->
         <provider
             android:name="androidx.startup.InitializationProvider"
             android:authorities="${applicationId}.androidx-startup"
@@ -114,11 +117,6 @@
             </intent-filter>
         </receiver>
         
-        <!-- ✅ BACKGROUND FETCH SERVICE -->
-        <service 
-            android:name="com.transistorsoft.flutter.backgroundfetch.HeadlessTask" 
-            android:exported="false" />
-            
     </application>
     
     <queries>
