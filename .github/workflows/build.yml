@@ -25,18 +25,18 @@ jobs:
         distribution: 'zulu'
         java-version: '17'
         
-        # ✅ CLEAN PUB CACHE DULU - PENTING!
+    # ✅ CLEAN PUB CACHE DULU - PENTING!
     - name: Clean pub cache
       run: |
         rm -rf ~/.pub-cache/hosted/pub.dev/workmanager-*
         rm -rf ~/.pub-cache/git/workmanager*
         echo "🧹 Workmanager cache cleaned"
 
+    # ✅ INSTALL DEPENDENCIES (ambil versi git dari pubspec.yaml)
     - name: Install dependencies
       run: flutter pub get
 
-
-    # ✅ PATCH UNTUK FLUTTER_LOCAL_NOTIFICATIONS BUG
+    # ✅ PATCH flutter_local_notifications BigPictureStyle BUG
     - name: Patch flutter_local_notifications BigPictureStyle bug
       run: |
         find ~/.pub-cache -name "FlutterLocalNotificationsPlugin.java" -path "*/flutter_local_notifications-*/android/src/main/java/com/dexterous/flutterlocalnotifications/FlutterLocalNotificationsPlugin.java" | while read file; do
@@ -52,26 +52,25 @@ jobs:
         sed -i 's/targetSdk = [0-9]*/targetSdk = 36/' android/app/build.gradle.kts  
         sed -i 's/ndkVersion = ".*"/ndkVersion = "27.0.12077973"/' android/app/build.gradle.kts
         
-        # Verify changes
         echo "✅ Updated build.gradle.kts:"
         grep -E "(compileSdk|targetSdk|ndkVersion)" android/app/build.gradle.kts
+
+    # ✅ PATCH WORKMANAGER namespace — berlaku untuk versi git & pub.dev
+    - name: Patch Workmanager namespace
+      run: |
+        WORK_PATH=$(find ~/.pub-cache -type d -name "workmanager-*" | head -n 1)
+        if [ -f "$WORK_PATH/android/build.gradle" ]; then
+          echo "namespace 'dev.fluttercommunity.workmanager'" >> "$WORK_PATH/android/build.gradle"
+          echo "✅ Namespace added to: $WORK_PATH/android/build.gradle"
+        else
+          echo "⚠️ Workmanager build.gradle not found"
+        fi
 
     - name: Clean Flutter
       run: flutter clean
 
-    - name: Get dependencies
+    - name: Get dependencies again
       run: flutter pub get
-
-        # ✅ PATCH WORKMANAGER namespace agar bisa build
-    - name: Patch Workmanager namespace
-      run: |
-        WORK_PATH=$(find ~/.pub-cache/hosted/pub.dev -type d -name "workmanager-*" | head -n 1)
-        if [ -d "$WORK_PATH/android" ]; then
-          echo "namespace 'dev.fluttercommunity.workmanager'" >> "$WORK_PATH/android/build.gradle"
-          echo "✅ Namespace added to: $WORK_PATH/android/build.gradle"
-        else
-          echo "⚠️ Workmanager path not found"
-        fi
       
     - name: Build debug APK
       run: flutter build apk --debug
