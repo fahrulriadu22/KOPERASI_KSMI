@@ -74,38 +74,36 @@ Future<void> _executeNotificationCheck() async {
 }
 
 void main() async {
-  // ✅ 1. WAIT FOR BINDING
   WidgetsFlutterBinding.ensureInitialized();
   
   print('🚀 STARTING KOPERASI KSMI APP...');
   
-  // ✅ 2. INITIALIZE FIREBASE FIRST - PENTING!
+  // ✅ 1. INITIALIZE FIREBASE FIRST
   try {
     print('🔥 Initializing Firebase Core...');
     await Firebase.initializeApp();
     print('✅ Firebase Core initialized successfully');
   } catch (e) {
     print('❌ Firebase Core initialization failed: $e');
-    // Jangan crash app, continue tanpa Firebase
   }
 
-  // ✅ 3. INITIALIZE SHARED PREFERENCES
+  // ✅ 2. INITIALIZE SHARED PREFERENCES
   final SharedPreferences prefs = await SharedPreferences.getInstance();
   print('✅ SharedPreferences initialized');
 
-  // ✅ 4. INITIALIZE WORKMANAGER - SETELAH FIREBASE
-  try {
-    print('🔄 Initializing WorkManager for background sync...');
-    await Workmanager().initialize(
-      callbackDispatcher,
-      isInDebugMode: true,
-    );
-    print('✅ WorkManager initialized successfully');
-  } catch (e) {
-    print('❌ WorkManager initialization failed: $e');
-  }
+  // ✅ 3. DISABLE WORKMANAGER DULU - TEST APLIKASI DULU
+  // try {
+  //   print('🔄 Initializing WorkManager for background sync...');
+  //   await Workmanager().initialize(
+  //     callbackDispatcher,
+  //     isInDebugMode: true,
+  //   );
+  //   print('✅ WorkManager initialized successfully');
+  // } catch (e) {
+  //   print('❌ WorkManager initialization failed: $e');
+  // }
 
-  // ✅ 5. INITIALIZE APP SERVICES
+  // ✅ 4. INITIALIZE APP SERVICES TANPA WORKMANAGER
   await _initializeAppServices();
   
   runApp(const KoperasiKSMIApp());
