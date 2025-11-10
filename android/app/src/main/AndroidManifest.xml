@@ -1,7 +1,4 @@
-<!-- ✅ TAMBAHKIN xmlns:tools DI BARIS PERTAMA -->
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
-    package="com.ksmi.koperasi">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
@@ -12,19 +9,19 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.VIBRATE" />
     
-    <!-- ✅ BACKGROUND SYNC PERMISSIONS -->
+    <!-- ✅ TAMBAHKAN PERMISSIONS UNTUK BACKGROUND SYNC -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     
     <application
         android:label="koperasi KSMI"
-        android:name="${applicationName}"  <!-- ✅ KEMBALIKAN KE DEFAULT -->
+        android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:requestLegacyExternalStorage="true"
         android:usesCleartextTraffic="true"
         android:allowBackup="true"
-        android:networkSecurityConfig="@xml/network_security_config">
+        android:networkSecurityConfig="@xml/network_security_config"> <!-- ✅ Tambah ini -->
         
         <!-- ✅ FIREBASE NOTIFICATION CONFIG -->
         <meta-data
@@ -34,15 +31,7 @@
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_icon"
             android:resource="@mipmap/ic_launcher" />
-            
-        <!-- ✅ FIREBASE APP ID -->
-        <meta-data
-            android:name="firebase_analytics_collection_enabled"
-            android:value="true" />
-        <meta-data
-            android:name="google_analytics_adid_collection_enabled"
-            android:value="true" />
-
+        
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -62,7 +51,7 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
             
-            <!-- ✅ NOTIFICATION CLICK HANDLER -->
+            <!-- ✅ INTENT FILTER UNTUK NOTIFICATION TAPS -->
             <intent-filter>
                 <action android:name="FLUTTER_NOTIFICATION_CLICK" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -82,27 +71,27 @@
             </intent-filter>
         </service>
         
-        <!-- ✅ FIREBASE BACKGROUND SERVICE -->
+        <!-- ✅ FIREBASE MESSAGING BACKGROUND SERVICE -->
         <service
             android:name="io.flutter.plugins.firebase.messaging.FlutterFirebaseMessagingBackgroundService"
             android:exported="false" />
         
-        <!-- ✅ WORKMANAGER CONFIGURATION - FIXED -->
-        <provider
-            android:name="androidx.startup.InitializationProvider"
-            android:authorities="${applicationId}.androidx-startup"
-            android:exported="false"
-            tools:node="merge">
-            <meta-data
-                android:name="androidx.work.WorkManagerInitializer"
-                android:value="androidx.startup"
-                tools:node="remove" />
-        </provider>
+        <!-- ✅ WORKMANAGER INITIALIZATION SERVICE -->
+        <service
+            android:name="com.tekartik.sqflite.SqflitePlugin$BackgroundService"
+            android:exported="false" />
             
-        <!-- ✅ NOTIFICATION CHANNEL -->
+        <!-- ✅ NOTIFICATION CHANNEL UNTUK ANDROID 8+ -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="ksmi_channel_id" />
+            
+        <!-- ✅ WORKMANAGER CONFIGURATION -->
+        <provider
+            android:name="androidx.work.impl.WorkManagerInitializer"
+            android:authorities="${applicationId}.workmanager-init"
+            android:exported="false"
+            android:multiprocess="true" />
             
         <!-- ✅ ALARM RECEIVER UNTUK BACKGROUND SYNC -->
         <receiver 
@@ -114,9 +103,16 @@
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED"/>
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
+                <action android:name="android.intent.action.QUICKBOOT_POWERON"/>
+                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON"/>
             </intent-filter>
         </receiver>
         
+        <!-- ✅ BACKGROUND FETCH SERVICE -->
+        <service 
+            android:name="com.transistorsoft.flutter.backgroundfetch.HeadlessTask" 
+            android:exported="false" />
+            
     </application>
     
     <queries>
