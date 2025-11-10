@@ -20,8 +20,8 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace = "com.ksmi.koperasi"
-    compileSdk = 34 // ✅ TURUNKAN DARI 36 KE 34
-    ndkVersion = "26.1.10909125" // ✅ VERSI LEBIH STABIL
+    compileSdk = 35 // ✅ UPDATE DARI 34 KE 35
+    ndkVersion = "26.1.10909125"
 
     val flutterVersionCode = project.findProperty("flutterVersionCode")?.toString()?.toIntOrNull() ?: 1
     val flutterVersionName = project.findProperty("flutterVersionName")?.toString() ?: "1.0.0"
@@ -29,12 +29,9 @@ android {
     defaultConfig {
         applicationId = "com.ksmi.koperasi"
         minSdk = 23
-        targetSdk = 34 // ✅ TURUNKAN DARI 36 KE 34
+        targetSdk = 35 // ✅ UPDATE DARI 34 KE 35
         versionCode = flutterVersionCode
         versionName = flutterVersionName
-        multiDexEnabled = true
-        
-        // ✅ ADD DEX CONFIG
         multiDexEnabled = true
     }
 
@@ -63,10 +60,6 @@ android {
 
             isMinifyEnabled = false
             isShrinkResources = false
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
-            )
         }
         debug {
             signingConfig = signingConfigs.getByName("debug")
@@ -83,7 +76,6 @@ dependencies {
     implementation(platform("com.google.firebase:firebase-bom:33.1.2"))
     implementation("com.google.firebase:firebase-analytics")
     implementation("com.google.firebase:firebase-messaging")
-    implementation("androidx.work:work-runtime-ktx:2.9.0") // ✅ WORKMANAGER
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
     implementation("androidx.multidex:multidex:2.0.1")
 }
