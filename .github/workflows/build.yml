@@ -19,14 +19,34 @@ jobs:
         channel: 'stable'
         cache: true
         
-    - name: Install dependencies
-      run: flutter pub get
-
     - name: Setup Java
       uses: actions/setup-java@v4
       with:
         distribution: 'zulu'
         java-version: '17'
+
+    - name: Install dependencies
+      run: flutter pub get
+
+    # ✅ PATCH UNTUK FLUTTER_LOCAL_NOTIFICATIONS BUG
+    - name: Patch flutter_local_notifications BigPictureStyle bug
+      run: |
+        find ~/.pub-cache -name "FlutterLocalNotificationsPlugin.java" -path "*/flutter_local_notifications-*/android/src/main/java/com/dexterous/flutterlocalnotifications/FlutterLocalNotificationsPlugin.java" | while read file; do
+          echo "🔧 Patching $file"
+          sed -i 's/bigLargeIcon(null)/bigLargeIcon((android.graphics.Bitmap) null)/' "$file"
+        done
+
+    # ✅ UPDATE ANDROID SDK & NDK VERSION
+    - name: Update Android SDK and NDK versions
+      run: |
+        echo "🔄 Updating build.gradle.kts with correct versions..."
+        sed -i 's/compileSdk = [0-9]*/compileSdk = 36/' android/app/build.gradle.kts
+        sed -i 's/targetSdk = [0-9]*/targetSdk = 36/' android/app/build.gradle.kts  
+        sed -i 's/ndkVersion = ".*"/ndkVersion = "27.0.12077973"/' android/app/build.gradle.kts
+        
+        # Verify changes
+        echo "✅ Updated build.gradle.kts:"
+        grep -E "(compileSdk|targetSdk|ndkVersion)" android/app/build.gradle.kts
 
     - name: Clean Flutter
       run: flutter clean

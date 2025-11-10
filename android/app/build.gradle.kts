@@ -21,7 +21,7 @@ if (keystorePropertiesFile.exists()) {
 android {
     namespace = "com.ksmi.koperasi"
     compileSdk = 35 // ✅ UPDATE DARI 34 KE 35
-    ndkVersion = "26.1.10909125"
+    ndkVersion = "27.0.12077973"
 
     val flutterVersionCode = project.findProperty("flutterVersionCode")?.toString()?.toIntOrNull() ?: 1
     val flutterVersionName = project.findProperty("flutterVersionName")?.toString() ?: "1.0.0"
