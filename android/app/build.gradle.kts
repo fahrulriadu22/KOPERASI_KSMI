@@ -3,7 +3,7 @@ import java.io.FileInputStream
 
 plugins {
     id("com.android.application")
-    id("kotlin-android")
+    id("org.jetbrains.kotlin.android")
     id("dev.flutter.flutter-gradle-plugin")
     id("com.google.gms.google-services")
 }
@@ -20,18 +20,15 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace = "com.ksmi.koperasi"
-    compileSdk = 35 // ✅ UPDATE DARI 34 KE 35
+    compileSdk = 35
     ndkVersion = "27.0.12077973"
-
-    val flutterVersionCode = project.findProperty("flutterVersionCode")?.toString()?.toIntOrNull() ?: 1
-    val flutterVersionName = project.findProperty("flutterVersionName")?.toString() ?: "1.0.0"
 
     defaultConfig {
         applicationId = "com.ksmi.koperasi"
         minSdk = 23
-        targetSdk = 35 // ✅ UPDATE DARI 34 KE 35
-        versionCode = flutterVersionCode
-        versionName = flutterVersionName
+        targetSdk = 35
+        versionCode = 1
+        versionName = "1.0.0"
         multiDexEnabled = true
     }
 
@@ -73,9 +70,16 @@ flutter {
 
 dependencies {
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.24")
+
+    // ✅ Firebase (pakai BOM biar versi seragam)
     implementation(platform("com.google.firebase:firebase-bom:33.1.2"))
     implementation("com.google.firebase:firebase-analytics")
     implementation("com.google.firebase:firebase-messaging")
+
+    // ✅ Fix WorkManager class missing
+    implementation("androidx.work:work-runtime-ktx:2.9.1")
+
+    // ✅ Tambahan umum
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
     implementation("androidx.multidex:multidex:2.0.1")
 }
