@@ -24,7 +24,7 @@ dependencies:
   cupertino_icons: ^1.0.8
   device_info_plus: ^12.0.0
   path_provider: ^2.1.5
-  workmanager: ^0.9.0  # ✅ TURUNKAN KE 0.5.1 ATAU HAPUS SAJA
+  workmanager: ^0.5.1
 
 dev_dependencies:
   flutter_test:
