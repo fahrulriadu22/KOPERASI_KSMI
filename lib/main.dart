@@ -25,12 +25,8 @@ void callbackDispatcher() {
     print("🔄 Native background task: $task");
     
     try {
-      // ❌ JANGAN initialize Firebase di sini - SUDAH DI INIT DI MAIN
-      // Firebase akan otomatis available karena sudah di-init di main thread
-      
       switch (task) {
         case 'inbox-sync-task':
-          // ✅ Gunakan method yang tidak require Firebase initialization
           await _executeBackgroundSync();
           print("✅ Background inbox sync completed");
           return true;
@@ -54,9 +50,7 @@ void callbackDispatcher() {
 // ✅ BACKGROUND SYNC TANPA FIREBASE INIT
 Future<void> _executeBackgroundSync() async {
   try {
-    // Lakukan sync data langsung ke API tanpa Firebase
     final ApiService apiService = ApiService();
-    // Implementasi sync logic di sini
     print("🔄 Executing background sync...");
   } catch (e) {
     print("❌ Background sync error: $e");
@@ -67,9 +61,29 @@ Future<void> _executeBackgroundSync() async {
 Future<void> _executeNotificationCheck() async {
   try {
     print("🔄 Checking for notifications...");
-    // Logic check notification
   } catch (e) {
     print("❌ Notification check error: $e");
+  }
+}
+
+// ✅ REGISTER BACKGROUND TASKS - WITH PROPER ERROR HANDLING
+Future<void> _registerBackgroundTasks() async {
+  try {
+    print('🔄 Registering background tasks...');
+    
+    await Workmanager().registerPeriodicTask(
+      "inbox-sync-task",
+      "inbox-sync-task",
+      frequency: const Duration(minutes: 15),
+      constraints: Constraints(
+        networkType: NetworkType.connected,
+      ),
+      initialDelay: const Duration(seconds: 30),
+    );
+    
+    print('✅ Background tasks registered successfully');
+  } catch (e) {
+    print('❌ Error registering background tasks: $e');
   }
 }
 
@@ -91,19 +105,19 @@ void main() async {
   final SharedPreferences prefs = await SharedPreferences.getInstance();
   print('✅ SharedPreferences initialized');
 
-  // ✅ 3. DISABLE WORKMANAGER DULU - TEST APLIKASI DULU
-  // try {
-  //   print('🔄 Initializing WorkManager for background sync...');
-  //   await Workmanager().initialize(
-  //     callbackDispatcher,
-  //     isInDebugMode: true,
-  //   );
-  //   print('✅ WorkManager initialized successfully');
-  // } catch (e) {
-  //   print('❌ WorkManager initialization failed: $e');
-  // }
+  // ✅ 3. ENABLE WORKMANAGER - TEST DENGAN GIT VERSION
+  try {
+    print('🔄 Initializing WorkManager for background sync...');
+    await Workmanager().initialize(
+      callbackDispatcher,
+      isInDebugMode: true,
+    );
+    print('✅ WorkManager initialized successfully');
+  } catch (e) {
+    print('❌ WorkManager initialization failed: $e');
+  }
 
-  // ✅ 4. INITIALIZE APP SERVICES TANPA WORKMANAGER
+  // ✅ 4. INITIALIZE APP SERVICES
   await _initializeAppServices();
   
   runApp(const KoperasiKSMIApp());
@@ -117,7 +131,7 @@ Future<void> _initializeAppServices() async {
     // Initialize Firebase Services
     await _initializeFirebaseServices();
     
-    // Register background tasks hanya jika WorkManager berhasil
+    // ✅ ENABLE BACKGROUND TASKS
     await _registerBackgroundTasks();
     
     print('✅ All app services initialized successfully');
@@ -137,28 +151,6 @@ Future<void> _initializeFirebaseServices() async {
   } catch (e) {
     print('❌ Firebase Services initialization failed: $e');
     print('⚠️ Continuing without Firebase Services...');
-  }
-}
-
-// ✅ REGISTER BACKGROUND TASKS - WITH PROPER ERROR HANDLING
-Future<void> _registerBackgroundTasks() async {
-  try {
-    print('🔄 Registering background tasks...');
-    
-    // Hanya register jika app dalam state yang ready
-    await Workmanager().registerPeriodicTask(
-      "inbox-sync-task",
-      "inbox-sync-task",
-      frequency: const Duration(minutes: 15),
-      constraints: Constraints(
-        networkType: NetworkType.connected,
-      ),
-      initialDelay: const Duration(seconds: 30), // ✅ Delay lebih lama
-    );
-    
-    print('✅ Background tasks registered successfully');
-  } catch (e) {
-    print('❌ Error registering background tasks: $e');
   }
 }
 

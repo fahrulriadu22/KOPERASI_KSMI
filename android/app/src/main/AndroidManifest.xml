@@ -77,18 +77,6 @@
         <service
             android:name="io.flutter.plugins.firebase.messaging.FlutterFirebaseMessagingBackgroundService"
             android:exported="false" />
-        
-        <!-- ✅ WORKMANAGER INITIALIZATION SERVICE -->
-        <service
-            android:name="com.tekartik.sqflite.SqflitePlugin$BackgroundService"
-            android:exported="false" />
-            
-        <!-- ✅ WORKMANAGER CONFIGURATION -->
-        <provider
-            android:name="androidx.work.impl.WorkManagerInitializer"
-            android:authorities="${applicationId}.workmanager-init"
-            android:exported="false"
-            android:multiprocess="true" />
             
         <!-- ✅ ALARM RECEIVER UNTUK BACKGROUND SYNC -->
         <receiver 
