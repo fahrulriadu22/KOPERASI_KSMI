@@ -22,16 +22,11 @@ jobs:
     - name: Install dependencies
       run: flutter pub get
 
-    # ✅ Patch opsional (boleh dihapus kalau ga pakai notif)
-    - name: Patch flutter_local_notifications BigPictureStyle bug
-      run: |
-        FILE=$(find ~/.pub-cache -path "*/flutter_local_notifications-16.3.3/android/src/main/java/com/dexterous/flutterlocalnotifications/FlutterLocalNotificationsPlugin.java" || true)
-        if [ -n "$FILE" ]; then
-          echo "🔧 Patching $FILE"
-          sed -i 's/bigLargeIcon(null)/bigLargeIcon((android.graphics.Bitmap) null)/' "$FILE"
-        else
-          echo "⚠️ flutter_local_notifications not found — skipping patch"
-        fi
+    - name: Setup Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'zulu'
+        java-version: '17'
 
     - name: Clean Flutter
       run: flutter clean

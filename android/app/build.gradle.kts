@@ -5,7 +5,7 @@ plugins {
     id("com.android.application")
     id("kotlin-android")
     id("dev.flutter.flutter-gradle-plugin")
-    id("com.google.gms.google-services") // ✅ penting agar Firebase aktif
+    id("com.google.gms.google-services")
 }
 
 val keystoreProperties = Properties()
@@ -20,8 +20,8 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace = "com.ksmi.koperasi"
-    compileSdk = 36
-    ndkVersion = "27.0.12077973" // ✅ pakai versi terbaru biar cocok dengan plugin Firebase
+    compileSdk = 34 // ✅ TURUNKAN DARI 36 KE 34
+    ndkVersion = "26.1.10909125" // ✅ VERSI LEBIH STABIL
 
     val flutterVersionCode = project.findProperty("flutterVersionCode")?.toString()?.toIntOrNull() ?: 1
     val flutterVersionName = project.findProperty("flutterVersionName")?.toString() ?: "1.0.0"
@@ -29,20 +29,23 @@ android {
     defaultConfig {
         applicationId = "com.ksmi.koperasi"
         minSdk = 23
-        targetSdk = 36
+        targetSdk = 34 // ✅ TURUNKAN DARI 36 KE 34
         versionCode = flutterVersionCode
         versionName = flutterVersionName
+        multiDexEnabled = true
+        
+        // ✅ ADD DEX CONFIG
         multiDexEnabled = true
     }
 
     compileOptions {
         isCoreLibraryDesugaringEnabled = true
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
     }
 
     kotlinOptions {
-        jvmTarget = "17"
+        jvmTarget = "1.8"
     }
 
     buildTypes {
@@ -55,11 +58,15 @@ android {
                     keyPassword = keystoreProperties["keyPassword"]?.toString()
                 }
             } else {
-                println("⚠️ Building unsigned release (no key.properties found).")
+                signingConfig = signingConfigs.getByName("debug")
             }
 
             isMinifyEnabled = false
             isShrinkResources = false
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
         debug {
             signingConfig = signingConfigs.getByName("debug")
@@ -76,6 +83,7 @@ dependencies {
     implementation(platform("com.google.firebase:firebase-bom:33.1.2"))
     implementation("com.google.firebase:firebase-analytics")
     implementation("com.google.firebase:firebase-messaging")
+    implementation("androidx.work:work-runtime-ktx:2.9.0") // ✅ WORKMANAGER
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
     implementation("androidx.multidex:multidex:2.0.1")
 }
