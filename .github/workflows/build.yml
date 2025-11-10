@@ -29,10 +29,12 @@ jobs:
     - name: Clean pub cache
       run: |
         rm -rf ~/.pub-cache/hosted/pub.dev/workmanager-*
+        rm -rf ~/.pub-cache/git/workmanager*
         echo "🧹 Workmanager cache cleaned"
 
     - name: Install dependencies
       run: flutter pub get
+
 
     # ✅ PATCH UNTUK FLUTTER_LOCAL_NOTIFICATIONS BUG
     - name: Patch flutter_local_notifications BigPictureStyle bug
@@ -59,6 +61,17 @@ jobs:
 
     - name: Get dependencies
       run: flutter pub get
+
+        # ✅ PATCH WORKMANAGER namespace agar bisa build
+    - name: Patch Workmanager namespace
+      run: |
+        WORK_PATH=$(find ~/.pub-cache/hosted/pub.dev -type d -name "workmanager-*" | head -n 1)
+        if [ -d "$WORK_PATH/android" ]; then
+          echo "namespace 'dev.fluttercommunity.workmanager'" >> "$WORK_PATH/android/build.gradle"
+          echo "✅ Namespace added to: $WORK_PATH/android/build.gradle"
+        else
+          echo "⚠️ Workmanager path not found"
+        fi
       
     - name: Build debug APK
       run: flutter build apk --debug
