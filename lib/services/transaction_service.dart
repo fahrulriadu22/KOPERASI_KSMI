@@ -252,5 +252,5 @@ class TransactionService {
         'data': {}
       };
     }
-  }
+  } 
 }
