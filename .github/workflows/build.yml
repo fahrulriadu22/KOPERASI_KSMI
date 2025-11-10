@@ -24,6 +24,12 @@ jobs:
       with:
         distribution: 'zulu'
         java-version: '17'
+        
+        # ✅ CLEAN PUB CACHE DULU - PENTING!
+    - name: Clean pub cache
+      run: |
+        rm -rf ~/.pub-cache/hosted/pub.dev/workmanager-*
+        echo "🧹 Workmanager cache cleaned"
 
     - name: Install dependencies
       run: flutter pub get
