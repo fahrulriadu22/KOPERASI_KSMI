@@ -1,19 +1,20 @@
 package com.ksmi.koperasi
 
 import io.flutter.app.FlutterApplication
+import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.PluginRegistry
 import io.flutter.plugins.GeneratedPluginRegistrant
-import dev.fluttercommunity.workmanager.WorkmanagerPlugin
+import be.tramckrijte.workmanager.WorkmanagerPlugin
 
-class Application : FlutterApplication(), PluginRegistry.PluginRegistrantCallback {
+class Application : FlutterApplication() {
     override fun onCreate() {
         super.onCreate()
-        WorkmanagerPlugin.setPluginRegistrantCallback(this)
     }
 
-    override fun registerWith(registry: PluginRegistry?) {
-        if (registry != null) {
-            GeneratedPluginRegistrant.registerWith(registry)
+    companion object {
+        fun registerWith(flutterEngine: FlutterEngine) {
+            GeneratedPluginRegistrant.registerWith(flutterEngine)
+            WorkmanagerPlugin.registerWith(flutterEngine)
         }
     }
 }
