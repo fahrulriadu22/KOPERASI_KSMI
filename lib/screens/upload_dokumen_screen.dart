@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../services/api_service.dart';
 import '../services/temporary_storage_service.dart';
+import 'aktivasi_berhasil_screen.dart';
 import 'dashboard_main.dart';
+import 'login_screen.dart';
 import 'profile_screen.dart';
 
 class UploadDokumenScreen extends StatefulWidget {
@@ -83,22 +85,25 @@ class _UploadDokumenScreenState extends State<UploadDokumenScreen> {
     print('📄 KTP Server: ${_currentUser['foto_ktp'] ?? 'NULL'}');
     print('📄 KK Server: ${_currentUser['foto_kk'] ?? 'NULL'}');
     print('📄 Foto Diri Server: ${_currentUser['foto_diri'] ?? 'NULL'}');
+    print('💰 Bukti Pembayaran Server: ${_currentUser['foto_bukti'] ?? 'NULL'}');
     
     final ktpUploaded = _isDocumentUploadedToServer('ktp');
     final kkUploaded = _isDocumentUploadedToServer('kk');
     final diriUploaded = _isDocumentUploadedToServer('diri');
+    final buktiUploaded = _isDocumentUploadedToServer('bukti');
     
     print('✅ KTP Uploaded to Server: $ktpUploaded');
     print('✅ KK Uploaded to Server: $kkUploaded');
     print('✅ Foto Diri Uploaded to Server: $diriUploaded');
+    print('✅ Bukti Pembayaran Uploaded to Server: $buktiUploaded');
     print('🐛 === DEBUG END ===');
   }
 
   // ✅ PERBAIKAN: VALIDASI SEBELUM UPLOAD DENGAN SAFE CHECK
   bool _validateBeforeUpload() {
-    // ✅ CEK FILE LOKAL
-    if (!_storageService.isAllFilesComplete) {
-      _showSafeSnackBar('Harap lengkapi semua 3 dokumen terlebih dahulu', isError: true);
+    // ✅ CEK FILE LOKAL - SEKARANG 4 DOKUMEN (TAMBAH BUKTI PEMBAYARAN)
+    if (!_storageService.isAllFilesWithBuktiComplete) {
+      _showSafeSnackBar('Harap lengkapi semua 4 dokumen terlebih dahulu', isError: true);
       return false;
     }
 
@@ -106,8 +111,9 @@ class _UploadDokumenScreenState extends State<UploadDokumenScreen> {
     final ktpServer = _isDocumentUploadedToServer('ktp');
     final kkServer = _isDocumentUploadedToServer('kk');
     final diriServer = _isDocumentUploadedToServer('diri');
+    final buktiServer = _isDocumentUploadedToServer('bukti');
     
-    if (ktpServer && kkServer && diriServer) {
+    if (ktpServer && kkServer && diriServer && buktiServer) {
       _showSafeSnackBar('Semua dokumen sudah terupload ke server');
       return false;
     }
@@ -116,8 +122,10 @@ class _UploadDokumenScreenState extends State<UploadDokumenScreen> {
     final ktpSize = _storageService.ktpFile?.lengthSync() ?? 0;
     final kkSize = _storageService.kkFile?.lengthSync() ?? 0;
     final diriSize = _storageService.diriFile?.lengthSync() ?? 0;
+    final buktiSize = _storageService.buktiPembayaranFile?.lengthSync() ?? 0;
 
-    if (ktpSize > 5 * 1024 * 1024 || kkSize > 5 * 1024 * 1024 || diriSize > 5 * 1024 * 1024) {
+    if (ktpSize > 5 * 1024 * 1024 || kkSize > 5 * 1024 * 1024 || 
+        diriSize > 5 * 1024 * 1024 || buktiSize > 5 * 1024 * 1024) {
       _showSafeSnackBar('Ukuran file terlalu besar. Maksimal 5MB per file', isError: true);
       return false;
     }
@@ -199,8 +207,8 @@ class _UploadDokumenScreenState extends State<UploadDokumenScreen> {
         }
 
         final fileExtension = pickedFile.path.toLowerCase().split('.').last;
-        if (!['jpg', 'jpeg'].contains(fileExtension)) {
-          throw Exception('Format file tidak didukung. Gunakan JPG atau JPEG saja.');
+        if (!['jpg', 'jpeg', 'png'].contains(fileExtension)) {
+          throw Exception('Format file tidak didukung. Gunakan JPG, JPEG atau PNG saja.');
         }
 
         // ✅ SIMPAN FILE KE TEMPORARY STORAGE
@@ -213,6 +221,9 @@ class _UploadDokumenScreenState extends State<UploadDokumenScreen> {
             break;
           case 'diri':
             await _storageService.setDiriFile(file);
+            break;
+          case 'bukti':
+            await _storageService.setBuktiPembayaranFile(file);
             break;
         }
 
@@ -283,6 +294,9 @@ class _UploadDokumenScreenState extends State<UploadDokumenScreen> {
           case 'diri':
             await _storageService.setDiriFile(file);
             break;
+          case 'bukti':
+            await _storageService.setBuktiPembayaranFile(file);
+            break;
         }
 
         if (mounted && !_isNavigating) {
@@ -314,25 +328,28 @@ class _UploadDokumenScreenState extends State<UploadDokumenScreen> {
   // ✅ CHECK AUTO UPLOAD JIKA SEMUA FILE LENGKAP
   void _checkAutoUpload() {
     print('🔄 _checkAutoUpload called');
-    print('   - isAllFilesComplete: ${_storageService.isAllFilesComplete}');
+    print('   - isAllFilesWithBuktiComplete: ${_storageService.isAllFilesWithBuktiComplete}');
     print('   - isUploading: ${_storageService.isUploading}');
     print('   - hasKtpFile: ${_storageService.hasKtpFile}');
     print('   - hasKkFile: ${_storageService.hasKkFile}');
     print('   - hasDiriFile: ${_storageService.hasDiriFile}');
+    print('   - hasBuktiPembayaranFile: ${_storageService.hasBuktiPembayaran}');
     
     // ✅ CEK APAKAH SUDAH ADA DI SERVER
     final ktpServer = _isDocumentUploadedToServer('ktp');
     final kkServer = _isDocumentUploadedToServer('kk');
     final diriServer = _isDocumentUploadedToServer('diri');
+    final buktiServer = _isDocumentUploadedToServer('bukti');
     
     print('   - KTP Server: $ktpServer');
     print('   - KK Server: $kkServer');
     print('   - Diri Server: $diriServer');
+    print('   - Bukti Server: $buktiServer');
     
     // ✅ JIKA SEMUA FILE LENGKAP DAN BELUM DIUPLOAD KE SERVER
-    if (_storageService.isAllFilesComplete && 
+    if (_storageService.isAllFilesWithBuktiComplete && 
         !_storageService.isUploading &&
-        (!ktpServer || !kkServer || !diriServer)) {
+        (!ktpServer || !kkServer || !diriServer || !buktiServer)) {
       print('🚀 All files complete, showing upload confirmation...');
       _showUploadConfirmationDialog();
     } else {
@@ -355,6 +372,11 @@ class _UploadDokumenScreenState extends State<UploadDokumenScreen> {
     await _uploadDocument('diri', 'Foto Diri');
   }
 
+  // ✅ UPLOAD BUKTI PEMBAYARAN
+  Future<void> _uploadBuktiPembayaran() async {
+    await _uploadDocument('bukti', 'Bukti Pembayaran');
+  }
+
   // ✅ UPLOAD KTP DARI KAMERA
   Future<void> _takePhotoKTP() async {
     await _takePhoto('ktp', 'KTP');
@@ -368,6 +390,11 @@ class _UploadDokumenScreenState extends State<UploadDokumenScreen> {
   // ✅ UPLOAD FOTO DIRI DARI KAMERA
   Future<void> _takePhotoFotoDiri() async {
     await _takePhoto('diri', 'Foto Diri');
+  }
+
+  // ✅ UPLOAD BUKTI PEMBAYARAN DARI KAMERA
+  Future<void> _takePhotoBuktiPembayaran() async {
+    await _takePhoto('bukti', 'Bukti Pembayaran');
   }
 
   // ✅ PERBAIKAN: CLEAR FILE DENGAN SAFE CHECK
@@ -403,6 +430,7 @@ class _UploadDokumenScreenState extends State<UploadDokumenScreen> {
       !_isDocumentUploadedToServer('ktp') && _storageService.hasKtpFile,
       !_isDocumentUploadedToServer('kk') && _storageService.hasKkFile,
       !_isDocumentUploadedToServer('diri') && _storageService.hasDiriFile,
+      !_isDocumentUploadedToServer('bukti') && _storageService.hasBuktiPembayaran,
     ].where((e) => e).length;
 
     // ✅ PERBAIKAN: GUNAKAN SAFE DIALOG
@@ -418,12 +446,12 @@ class _UploadDokumenScreenState extends State<UploadDokumenScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Sistem akan mengupload $filesToUpload file asli + 1 file duplikat foto diri:\n\n'
+              'Sistem akan mengupload $filesToUpload file:\n\n'
               '${!_isDocumentUploadedToServer('ktp') && _storageService.hasKtpFile ? '• KTP (ASLI)\n' : ''}'
               '${!_isDocumentUploadedToServer('kk') && _storageService.hasKkFile ? '• Kartu Keluarga (ASLI)\n' : ''}'
               '${!_isDocumentUploadedToServer('diri') && _storageService.hasDiriFile ? '• Foto Diri (ASLI)\n' : ''}'
-              '• Foto Bukti (DUPLIKAT DARI FOTO DIRI)\n\n'
-              'Total: ${filesToUpload + 1} file akan dikirim ke server.',
+              '${!_isDocumentUploadedToServer('bukti') && _storageService.hasBuktiPembayaran ? '• Bukti Pembayaran (ASLI)\n' : ''}'
+              '\nTotal: $filesToUpload file akan dikirim ke server.',
             ),
             const SizedBox(height: 16),
             _buildVerificationStatusInfo(),
@@ -479,20 +507,21 @@ class _UploadDokumenScreenState extends State<UploadDokumenScreen> {
       });
     }
 
-    print('🚀 Starting upload process with 3 REAL + FOTO_DIRI AS BUKTI...');
+    print('🚀 Starting upload process with 4 REAL documents...');
     
     try {
       // ✅ VALIDASI FILE LOKAL
-      if (!_storageService.isAllFilesComplete) {
-        throw Exception('Semua file belum lengkap. KTP, KK, dan Foto Diri harus diisi.');
+      if (!_storageService.isAllFilesWithBuktiComplete) {
+        throw Exception('Semua file belum lengkap. KTP, KK, Foto Diri, dan Bukti Pembayaran harus diisi.');
       }
 
       // ✅ DAPATKAN PATH FILE LOKAL
       final ktpPath = _storageService.ktpFile?.path;
       final kkPath = _storageService.kkFile?.path;
       final diriPath = _storageService.diriFile?.path;
+      final buktiPath = _storageService.buktiPembayaranFile?.path;
 
-      if (ktpPath == null || kkPath == null || diriPath == null) {
+      if (ktpPath == null || kkPath == null || diriPath == null || buktiPath == null) {
         throw Exception('Path file tidak valid. Silakan pilih ulang file.');
       }
 
@@ -500,13 +529,14 @@ class _UploadDokumenScreenState extends State<UploadDokumenScreen> {
       print('   - KTP: $ktpPath');
       print('   - KK: $kkPath');
       print('   - Foto Diri: $diriPath');
-      print('   - Foto Bukti: $diriPath (SAMA DENGAN FOTO DIRI)');
+      print('   - Bukti Pembayaran: $buktiPath');
 
-      // ✅ UPLOAD KE SERVER
-      final result = await _apiService.uploadThreeRealPhotos(
+      // ✅ UPLOAD KE SERVER - GUNAKAN API SERVICE YANG BARU
+      final result = await _apiService.uploadFourDocumentsComplete(
         fotoKtpPath: ktpPath,
         fotoKkPath: kkPath,
         fotoDiriPath: diriPath,
+        fotoBuktiPath: buktiPath,
       );
 
       if (mounted) {
@@ -568,15 +598,18 @@ class _UploadDokumenScreenState extends State<UploadDokumenScreen> {
         print('📄 KTP: ${newUserData['foto_ktp']}');
         print('📄 KK: ${newUserData['foto_kk']}');
         print('📄 Foto Diri: ${newUserData['foto_diri']}');
+        print('💰 Bukti Pembayaran: ${newUserData['foto_bukti']}');
         
         final ktpUploaded = _isDocumentUploadedToServer('ktp');
         final kkUploaded = _isDocumentUploadedToServer('kk');
         final diriUploaded = _isDocumentUploadedToServer('diri');
+        final buktiUploaded = _isDocumentUploadedToServer('bukti');
         
         print('✅ KTP Uploaded: $ktpUploaded');
         print('✅ KK Uploaded: $kkUploaded');
         print('✅ Foto Diri Uploaded: $diriUploaded');
-        print('🎯 All documents uploaded: ${ktpUploaded && kkUploaded && diriUploaded}');
+        print('✅ Bukti Pembayaran Uploaded: $buktiUploaded');
+        print('🎯 All documents uploaded: ${ktpUploaded && kkUploaded && diriUploaded && buktiUploaded}');
         print('🐛 === DEBUG END ===');
         
       } else {
@@ -587,73 +620,36 @@ class _UploadDokumenScreenState extends State<UploadDokumenScreen> {
     }
   }
 
-  // ✅ FITUR LEWATI - Skip upload dan langsung ke dashboard
-  void _lewatiUpload() {
-    // ✅ CEK APAKAH SUDAH ADA DOKUMEN DI SERVER
-    final ktpServer = _isDocumentUploadedToServer('ktp');
-    final kkServer = _isDocumentUploadedToServer('kk');
-    final diriServer = _isDocumentUploadedToServer('diri');
-    
-    final hasSomeServerDocuments = ktpServer || kkServer || diriServer;
-    final hasSomeLocalFiles = _storageService.hasAnyFile;
-
-    String message;
-    if (hasSomeServerDocuments) {
-      message = 'Beberapa dokumen sudah terupload ke server. '
-          'Dokumen yang belum terupload dapat diupload nanti di menu Profile. '
-          'Apakah Anda yakin ingin melanjutkan ke dashboard?';
-    } else if (hasSomeLocalFiles) {
-      message = 'Anda memiliki dokumen yang belum diupload. '
-          'Dokumen akan disimpan sementara dan dapat diupload nanti di menu Profile. '
-          'Apakah Anda yakin ingin melanjutkan ke dashboard?';
-    } else {
-      message = 'Anda dapat mengupload dokumen nanti di menu Profile. '
-          'Apakah Anda yakin ingin melanjutkan ke dashboard?';
-    }
-
+  // ✅ PERUBAHAN: LOGOUT - GANTI DARI LEWATI UPLOAD
+  void _logout() {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Lewati Upload Dokumen?'),
-        content: Text(message),
+        title: const Text('Logout?'),
+        content: const Text('Apakah Anda yakin ingin keluar dari aplikasi?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Lanjut Upload'),
+            child: const Text('Batal'),
           ),
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              _proceedToDashboard();
+              _performLogout();
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.orange,
+              backgroundColor: Colors.red,
             ),
-            child: const Text('Ya, Lewati'),
+            child: const Text('Ya, Logout'),
           ),
         ],
       ),
     );
   }
 
-  // Di upload_dokumen_screen.dart - tambahkan method baru
-void _proceedBasedOnUserStatus() {
-  final userStatus = _currentUser['status_user'] ?? 0;
-  
-  print('🎯 Proceeding based on user status: $userStatus');
-  
-  if (userStatus == 0) {
-    // ✅ STATUS 0: KEMBALI KE PROFILE SCREEN
-    _proceedToProfileOnly();
-  } else {
-    // ✅ STATUS 1: KE DASHBOARD
-    _proceedToDashboard();
-  }
-}
-
-// ✅ PERBAIKAN: METHOD PROCEED TO DASHBOARD YANG SIMPLE DAN WORKING
-void _proceedToDashboard() {
-  print('🚀 _proceedToDashboard called');
+ // ✅ PERBAIKAN: PERFORM LOGOUT DENGAN NAVIGASI LANGSUNG KE LOGIN SCREEN
+void _performLogout() {
+  print('🚪 Performing logout...');
   
   if (_isNavigating) {
     print('⚠️ Already navigating, skipping...');
@@ -663,46 +659,114 @@ void _proceedToDashboard() {
   _isNavigating = true;
 
   try {
-    // ✅ PASTIKAN WIDGET MASIH MOUNTED
-    if (!mounted) {
-      print('❌ Widget not mounted, cannot navigate');
-      return;
-    }
+    // ✅ CLEAR TEMPORARY STORAGE
+    _storageService.clearAllFiles();
+    
+    // ✅ TAMPILKAN SNACKBAR KONFIRMASI
+    _showSafeSnackBar('Anda telah logout', duration: 2);
 
-    final updatedUser = Map<String, dynamic>.from(_currentUser);
-    
-    print('🎯 Navigating to DashboardMain with user status: ${updatedUser['status_user']}');
-    
-    // ✅ GUNAKAN NAVIGATOR YANG LEBIH SIMPLE
+    // ✅ NAVIGASI KE LOGIN SCREEN DENGAN MATERIALPAGEROUTE LANGSUNG
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(
-        builder: (context) => DashboardMain(user: updatedUser),
+        builder: (context) => LoginScreen(
+          onLoginSuccess: (userData) {
+            // Callback untuk handle login success
+            // Akan dihandle oleh main.dart
+          },
+        ),
       ),
       (route) => false,
     );
     
-    print('✅ Navigation to dashboard completed');
+    print('✅ Logout completed');
     
   } catch (e) {
-    print('❌ Navigation error in _proceedToDashboard: $e');
+    print('❌ Logout error: $e');
     _isNavigating = false;
     
-    // ✅ FALLBACK: COBA NAVIGATION ALTERNATIF
+    // ✅ FALLBACK NAVIGATION
     if (mounted) {
       try {
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (_) => DashboardMain(user: _currentUser)),
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(
+            builder: (_) => LoginScreen(onLoginSuccess: (userData) {}),
+          ),
           (route) => false,
         );
       } catch (e2) {
-        print('❌ Fallback navigation also failed: $e2');
+        print('❌ Fallback logout navigation also failed: $e2');
       }
     }
   }
 }
 
-// ✅ UPDATE: SHOW VERIFICATION DIALOG
+  // ✅ METHOD BARU: PROCEED BERDASARKAN USER STATUS
+  void _proceedBasedOnUserStatus() {
+    final userStatus = _currentUser['status_user'] ?? 0;
+    
+    print('🎯 Proceeding based on user status: $userStatus');
+    
+    if (userStatus == 0) {
+      // ✅ STATUS 0: KEMBALI KE PROFILE SCREEN
+      _proceedToProfileOnly();
+    } else {
+      // ✅ STATUS 1: KE DASHBOARD
+      _proceedToDashboard();
+    }
+  }
+
+  // ✅ PERBAIKAN: METHOD PROCEED TO DASHBOARD YANG SIMPLE DAN WORKING
+  void _proceedToDashboard() {
+    print('🚀 _proceedToDashboard called');
+    
+    if (_isNavigating) {
+      print('⚠️ Already navigating, skipping...');
+      return;
+    }
+    
+    _isNavigating = true;
+
+    try {
+      // ✅ PASTIKAN WIDGET MASIH MOUNTED
+      if (!mounted) {
+        print('❌ Widget not mounted, cannot navigate');
+        return;
+      }
+
+      final updatedUser = Map<String, dynamic>.from(_currentUser);
+      
+      print('🎯 Navigating to DashboardMain with user status: ${updatedUser['status_user']}');
+      
+      // ✅ GUNAKAN NAVIGATOR YANG LEBIH SIMPLE
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(
+          builder: (context) => DashboardMain(user: updatedUser),
+        ),
+        (route) => false,
+      );
+      
+      print('✅ Navigation to dashboard completed');
+      
+    } catch (e) {
+      print('❌ Navigation error in _proceedToDashboard: $e');
+      _isNavigating = false;
+      
+      // ✅ FALLBACK: COBA NAVIGATION ALTERNATIF
+      if (mounted) {
+        try {
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (_) => DashboardMain(user: _currentUser)),
+            (route) => false,
+          );
+        } catch (e2) {
+          print('❌ Fallback navigation also failed: $e2');
+        }
+      }
+    }
+  }
+
+  // ✅ UPDATE: SHOW VERIFICATION DIALOG
 void _showVerificationDialog() {
   showDialog(
     context: context,
@@ -744,33 +808,39 @@ void _showVerificationDialog() {
         ElevatedButton(
           onPressed: () {
             Navigator.pop(context);
-            _proceedBasedOnUserStatus(); // ✅ GUNAKAN METHOD BARU
+            // Navigasi ke halaman 4 (AktivasiBerhasilScreen)
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => AktivasiBerhasilScreen(user: _currentUser),
+            ),
+          );
           },
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.green,
           ),
-          child: const Text('Lanjut ke Profile'),
+          child: const Text('Lanjut'),
         ),
       ],
     ),
   );
 }
 
-// ✅ METHOD BARU: KE PROFILE SAJA (UNTUK STATUS 0)
-void _proceedToProfileOnly() {
-  print('🚀 Navigating to ProfileScreen (status 0 restriction)');
-  
-  if (_isNavigating) return;
-  _isNavigating = true;
+  // ✅ METHOD BARU: KE PROFILE SAJA (UNTUK STATUS 0)
+  void _proceedToProfileOnly() {
+    print('🚀 Navigating to ProfileScreen (status 0 restriction)');
+    
+    if (_isNavigating) return;
+    _isNavigating = true;
 
-  final updatedUser = Map<String, dynamic>.from(_currentUser);
-  
-  Navigator.pushAndRemoveUntil(
-    context,
-    MaterialPageRoute(builder: (_) => ProfileScreen(user: updatedUser)),
-    (route) => false,
-  );
-}
+    final updatedUser = Map<String, dynamic>.from(_currentUser);
+    
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => ProfileScreen(user: updatedUser)),
+      (route) => false,
+    );
+  }
 
   // ✅ SHOW IMAGE SOURCE DIALOG dengan opsi kamera
   void _showImageSourceDialog(String type, String documentName) {
@@ -798,6 +868,9 @@ void _proceedToProfileOnly() {
                       case 'diri':
                         _takePhotoFotoDiri();
                         break;
+                      case 'bukti':
+                        _takePhotoBuktiPembayaran();
+                        break;
                     }
                   },
                   icon: const Icon(Icons.camera_alt),
@@ -823,6 +896,9 @@ void _proceedToProfileOnly() {
                         break;
                       case 'diri':
                         _uploadFotoDiri();
+                        break;
+                      case 'bukti':
+                        _uploadBuktiPembayaran();
                         break;
                     }
                   },
@@ -1053,14 +1129,15 @@ void _proceedToProfileOnly() {
 
   // ✅ PERBAIKAN: BUILD UPLOAD MANUAL SECTION DENGAN STATUS VERIFIKASI
   Widget _buildUploadManualSection() {
-    final allFilesComplete = _storageService.isAllFilesComplete;
+    final allFilesComplete = _storageService.isAllFilesWithBuktiComplete;
     final hasAnyFile = _storageService.hasAnyFile;
 
     // ✅ CEK APAKAH ADA FILE YANG BELUM TERUPLOAD KE SERVER
     final hasPendingUpload = hasAnyFile && 
         (!_isDocumentUploadedToServer('ktp') || 
          !_isDocumentUploadedToServer('kk') || 
-         !_isDocumentUploadedToServer('diri'));
+         !_isDocumentUploadedToServer('diri') ||
+         !_isDocumentUploadedToServer('bukti'));
 
     if (!hasPendingUpload && !allFilesComplete) return const SizedBox.shrink();
 
@@ -1352,11 +1429,12 @@ void _proceedToProfileOnly() {
       );
     }
 
-    final allFilesComplete = _storageService.isAllFilesComplete;
+    final allFilesComplete = _storageService.isAllFilesWithBuktiComplete;
     final uploadedCount = [
       _storageService.hasKtpFile,
       _storageService.hasKkFile,
       _storageService.hasDiriFile,
+      _storageService.hasBuktiPembayaran,
     ].where((e) => e).length;
 
     // ✅ HITUNG DOKUMEN YANG SUDAH DI SERVER
@@ -1364,6 +1442,7 @@ void _proceedToProfileOnly() {
       _isDocumentUploadedToServer('ktp'),
       _isDocumentUploadedToServer('kk'),
       _isDocumentUploadedToServer('diri'),
+      _isDocumentUploadedToServer('bukti'),
     ].where((e) => e).length;
 
     final userStatus = _currentUser['status_user'] ?? 0;
@@ -1385,7 +1464,7 @@ void _proceedToProfileOnly() {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      '$uploadedCount/3',
+                      '$uploadedCount/4',
                       style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
@@ -1442,7 +1521,7 @@ void _proceedToProfileOnly() {
                   Text(
                     isVerified 
                         ? 'Semua dokumen sudah terverifikasi dan aktif'
-                        : 'Upload 3 dokumen wajib + foto diri sebagai bukti',
+                        : 'Upload 4 dokumen wajib (KTP, KK, Foto Diri, Bukti Pembayaran)',
                     style: TextStyle(
                       fontSize: 14,
                       color: Colors.green[600],
@@ -1451,15 +1530,17 @@ void _proceedToProfileOnly() {
                   ),
                   const SizedBox(height: 16),
                   
-                  // PROGRESS INDICATOR (3 STEP) - TANPA BUKTI
+                  // PROGRESS INDICATOR (4 STEP) - DENGAN BUKTI PEMBAYARAN
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       _buildProgressStep(1, 'KTP', _isDocumentUploadedToServer('ktp') || _storageService.hasKtpFile),
-                      Container(width: 15, height: 2, color: (_isDocumentUploadedToServer('ktp') || _storageService.hasKtpFile) ? Colors.green : Colors.grey[300]),
+                      Container(width: 10, height: 2, color: (_isDocumentUploadedToServer('ktp') || _storageService.hasKtpFile) ? Colors.green : Colors.grey[300]),
                       _buildProgressStep(2, 'KK', _isDocumentUploadedToServer('kk') || _storageService.hasKkFile),
-                      Container(width: 15, height: 2, color: (_isDocumentUploadedToServer('kk') || _storageService.hasKkFile) ? Colors.green : Colors.grey[300]),
+                      Container(width: 10, height: 2, color: (_isDocumentUploadedToServer('kk') || _storageService.hasKkFile) ? Colors.green : Colors.grey[300]),
                       _buildProgressStep(3, 'Diri', _isDocumentUploadedToServer('diri') || _storageService.hasDiriFile),
+                      Container(width: 10, height: 2, color: (_isDocumentUploadedToServer('diri') || _storageService.hasDiriFile) ? Colors.green : Colors.grey[300]),
+                      _buildProgressStep(4, 'Bukti', _isDocumentUploadedToServer('bukti') || _storageService.hasBuktiPembayaran),
                     ],
                   ),
 
@@ -1476,8 +1557,8 @@ void _proceedToProfileOnly() {
                       const SizedBox(width: 4),
                       Text(
                         isVerified 
-                            ? 'Status: Terverifikasi • $serverUploadedCount/3 dokumen'
-                            : 'Status: $serverUploadedCount/3 di server • Menunggu verifikasi',
+                            ? 'Status: Terverifikasi • $serverUploadedCount/4 dokumen'
+                            : 'Status: $serverUploadedCount/4 di server • Menunggu verifikasi',
                         style: TextStyle(
                           color: isVerified ? Colors.green : Colors.green[700],
                           fontSize: 12,
@@ -1604,24 +1685,34 @@ void _proceedToProfileOnly() {
                       icon: Icons.person,
                       color: Colors.orange,
                     ),
+                    const SizedBox(height: 16),
+
+                    // BUKTI PEMBAYARAN CARD
+                    _buildDokumenCard(
+                      type: 'bukti',
+                      title: 'Bukti Pembayaran',
+                      description: 'Upload bukti pembayaran yang valid\n• Nama jelas terbaca\n• Nominal pembayaran terlihat\n• Tanggal pembayaran jelas\n• Format JPG/PNG (max 5MB)',
+                      icon: Icons.receipt,
+                      color: Colors.purple,
+                    ),
                     const SizedBox(height: 24),
 
                     // UPLOAD MANUAL SECTION (Hanya jika belum verified atau ada file pending)
-                    if (!isVerified || !_storageService.isAllFilesComplete) 
+                    if (!isVerified || !_storageService.isAllFilesWithBuktiComplete) 
                       _buildUploadManualSection(),
 
                     const SizedBox(height: 16),
 
-                    // TOMBOL LEWATI (Hanya untuk status 0)
+                    // PERUBAHAN: TOMBOL LOGOUT (Hanya untuk status 0)
                     if (!isVerified) ...[
                       SizedBox(
                         width: double.infinity,
                         height: 45,
                         child: OutlinedButton(
-                          onPressed: _isLoading || _storageService.isUploading ? null : _lewatiUpload,
+                          onPressed: _isLoading || _storageService.isUploading ? null : _logout,
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.orange,
-                            side: const BorderSide(color: Colors.orange),
+                            foregroundColor: Colors.red,
+                            side: const BorderSide(color: Colors.red),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
@@ -1632,11 +1723,11 @@ void _proceedToProfileOnly() {
                                   height: 16,
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
-                                    color: Colors.orange,
+                                    color: Colors.red,
                                   ),
                                 )
                               : const Text(
-                                  'Lewati & Lanjut ke Dashboard',
+                                  'Logout',
                                   style: TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w600,
@@ -1688,8 +1779,7 @@ void _proceedToProfileOnly() {
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                'Upload semua 3 dokumen untuk pengalaman terbaik. '
-                                'Foto diri akan digunakan sebagai foto bukti. '
+                                'Upload semua 4 dokumen untuk pengalaman terbaik. '
                                 'Dokumen akan disimpan sementara dan diupload otomatis ketika lengkap.',
                                 style: TextStyle(
                                   color: Colors.orange[700],
@@ -1716,21 +1806,21 @@ void _proceedToProfileOnly() {
     return Column(
       children: [
         Container(
-          width: 28,
-          height: 28,
+          width: 24,
+          height: 24,
           decoration: BoxDecoration(
             color: isCompleted ? Colors.green : Colors.grey[300],
             shape: BoxShape.circle,
           ),
           child: Center(
             child: isCompleted 
-                ? Icon(Icons.check, color: Colors.white, size: 16)
+                ? Icon(Icons.check, color: Colors.white, size: 14)
                 : Text(
                     '$step',
                     style: TextStyle(
                       color: Colors.grey[600],
                       fontWeight: FontWeight.bold,
-                      fontSize: 12,
+                      fontSize: 10,
                     ),
                   ),
           ),
@@ -1739,7 +1829,7 @@ void _proceedToProfileOnly() {
         Text(
           label,
           style: TextStyle(
-            fontSize: 10,
+            fontSize: 9,
             color: isCompleted ? Colors.green : Colors.grey[600],
             fontWeight: FontWeight.w500,
           ),
@@ -1757,6 +1847,8 @@ void _proceedToProfileOnly() {
         return _currentUser['foto_kk'];
       case 'diri':
         return _currentUser['foto_diri'];
+      case 'bukti':
+        return _currentUser['foto_bukti'];
       default:
         return null;
     }

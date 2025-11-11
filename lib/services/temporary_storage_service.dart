@@ -11,12 +11,13 @@ class TemporaryStorageService {
   factory TemporaryStorageService() => _instance;
   TemporaryStorageService._internal();
 
-  // ✅ FILE STORAGE - 3 FILE ASLI + 1 DUMMY PATH
+  // ✅ FILE STORAGE - 3 FILE ASLI + 1 DUMMY PATH + 1 BUKTI TRANSFER
   static File? _ktpFile;
   static File? _kkFile;
   static File? _diriFile;
   static String? _dummyBuktiPath; // ✅ UNTUK UPLOAD DOKUMEN
-  static File? _buktiTransferFile; // ✅ BARU: UNTUK RIIWAYAT TABUNGAN
+  static File? _buktiTransferFile; // ✅ UNTUK RIIWAYAT TABUNGAN
+  static File? _buktiPembayaranFile; // ✅ BARU: UNTUK BUKTI PEMBAYARAN DI UPLOAD DOKUMEN
 
   // Upload status
   static bool _isUploading = false;
@@ -28,7 +29,8 @@ class TemporaryStorageService {
   File? get kkFile => _kkFile;
   File? get diriFile => _diriFile;
   String? get dummyBuktiPath => _dummyBuktiPath;
-  File? get buktiTransferFile => _buktiTransferFile; // ✅ GETTER BARU
+  File? get buktiTransferFile => _buktiTransferFile;
+  File? get buktiPembayaranFile => _buktiPembayaranFile; // ✅ GETTER BARU
   bool get isUploading => _isUploading;
   String get uploadMessage => _uploadMessage;
   double get uploadProgress => _uploadProgress;
@@ -38,9 +40,10 @@ class TemporaryStorageService {
   bool get hasKkFile => _kkFile != null;
   bool get hasDiriFile => _diriFile != null;
   bool get hasDummyBukti => _dummyBuktiPath != null;
-  bool get hasBuktiTransfer => _buktiTransferFile != null; // ✅ CHECKER BARU
+  bool get hasBuktiTransfer => _buktiTransferFile != null;
+  bool get hasBuktiPembayaran => _buktiPembayaranFile != null; // ✅ CHECKER BARU
 
-  // ✅ CHECK COMPLETE - UNTUK UPLOAD DOKUMEN (3 ASLI + 1 DUMMY)
+  // ✅ CHECK COMPLETE - UNTUK UPLOAD DOKUMEN (3 ASLI + 1 DUMMY) - VERSI LAMA
   bool get isAllFilesComplete {
     return _ktpFile != null && _kkFile != null && _diriFile != null && _dummyBuktiPath != null;
   }
@@ -50,8 +53,32 @@ class TemporaryStorageService {
     return _buktiTransferFile != null && _dummyBuktiPath != null;
   }
 
+  // ✅ CHECK COMPLETE BARU - UNTUK UPLOAD DOKUMEN DENGAN BUKTI PEMBAYARAN (4 FILE ASLI)
+  bool get isAllFilesWithBuktiComplete {
+    return _ktpFile != null && _kkFile != null && _diriFile != null && _buktiPembayaranFile != null;
+  }
+
   bool get hasAnyFile {
-    return _ktpFile != null || _kkFile != null || _diriFile != null || _buktiTransferFile != null;
+    return _ktpFile != null || _kkFile != null || _diriFile != null || _buktiTransferFile != null || _buktiPembayaranFile != null;
+  }
+
+  // ✅ METHOD BARU: SET BUKTI PEMBAYARAN FILE (UNTUK UPLOAD DOKUMEN)
+  Future<void> setBuktiPembayaranFile(File file) async {
+    try {
+      print('🔄 Processing Bukti Pembayaran file...');
+      
+      await _validateFileBeforeProcessing(file, 'Bukti Pembayaran');
+      final convertedFile = await _autoConvertToJpg(file, 'Bukti Pembayaran');
+      
+      _buktiPembayaranFile = convertedFile;
+      await _saveFileStatus('bukti_pembayaran', convertedFile.path);
+      
+      print('✅ Bukti Pembayaran file processed: ${convertedFile.path}');
+      _checkAndAutoUpload();
+    } catch (e) {
+      print('❌ Error processing Bukti Pembayaran file: $e');
+      rethrow;
+    }
   }
 
   // ✅ METHOD BARU: SET BUKTI TRANSFER FILE (UNTUK RIIWAYAT TABUNGAN)
@@ -229,9 +256,10 @@ class TemporaryStorageService {
   void _checkAndAutoUpload() {
     print('🔄 _checkAndAutoUpload called');
     print('   - isAllFilesComplete: $isAllFilesComplete');
+    print('   - isAllFilesWithBuktiComplete: $isAllFilesWithBuktiComplete');
     print('   - isUploading: $_isUploading');
     
-    if (isAllFilesComplete && !_isUploading) {
+    if ((isAllFilesComplete || isAllFilesWithBuktiComplete) && !_isUploading) {
       print('🚀 All files complete, auto-upload ready!');
     } else {
       print('⏳ Not ready for auto-upload yet');
@@ -281,7 +309,7 @@ class TemporaryStorageService {
     }
   }
 
-  // ✅ PERBAIKAN BESAR: Upload 4 files (3 ASLI + 1 DUMMY) - UNTUK UPLOAD DOKUMEN
+  // ✅ PERBAIKAN BESAR: Upload 4 files (3 ASLI + 1 DUMMY) - UNTUK UPLOAD DOKUMEN VERSI LAMA
   Future<Map<String, dynamic>> uploadAllFiles() async {
     if (!isAllFilesComplete) {
       final missing = _getMissingFiles();
@@ -442,6 +470,86 @@ class TemporaryStorageService {
       _uploadProgress = 0.0;
       _uploadMessage = 'Upload error: $e';
       print('❌ UPLOAD ALL FILES ERROR: $e');
+      
+      return {
+        'success': false,
+        'message': 'Upload error: $e'
+      };
+    }
+  }
+
+  // ✅ METHOD BARU: UPLOAD 4 FILE ASLI DENGAN BUKTI PEMBAYARAN
+  Future<Map<String, dynamic>> uploadAllFilesWithBuktiPembayaran() async {
+    if (!isAllFilesWithBuktiComplete) {
+      final missing = _getMissingFilesWithBukti();
+      return {
+        'success': false,
+        'message': 'Harap lengkapi semua 4 dokumen terlebih dahulu',
+        'missing_files': missing
+      };
+    }
+
+    if (_isUploading) {
+      return {
+        'success': false, 
+        'message': 'Upload sedang berjalan, harap tunggu...'
+      };
+    }
+
+    _isUploading = true;
+    _uploadProgress = 0.0;
+    _uploadMessage = 'Mempersiapkan upload...';
+
+    try {
+      print('🚀 UPLOAD 4 FILE ASLI DENGAN BUKTI PEMBAYARAN STARTED');
+      print('📁 KTP: ${_ktpFile!.path}');
+      print('📁 KK: ${_kkFile!.path}');
+      print('📁 Foto Diri: ${_diriFile!.path}');
+      print('📁 Bukti Pembayaran: ${_buktiPembayaranFile!.path}');
+
+      // ✅ VALIDASI 4 FILE ASLI SEBELUM UPLOAD
+      await _validateFileBeforeUpload(_ktpFile!, 'KTP');
+      await _validateFileBeforeUpload(_kkFile!, 'KK');
+      await _validateFileBeforeUpload(_diriFile!, 'Foto Diri');
+      await _validateFileBeforeUpload(_buktiPembayaranFile!, 'Bukti Pembayaran');
+
+      // ✅ GUNAKAN API SERVICE YANG BARU UNTUK UPLOAD 4 FILE
+      final apiService = ApiService();
+      final result = await apiService.uploadFourDocumentsComplete(
+        fotoKtpPath: _ktpFile!.path,
+        fotoKkPath: _kkFile!.path,
+        fotoDiriPath: _diriFile!.path,
+        fotoBuktiPath: _buktiPembayaranFile!.path,
+      );
+
+      _isUploading = false;
+      _uploadProgress = 0.0;
+      _uploadMessage = '';
+
+      if (result['success'] == true) {
+        print('🎉 UPLOAD 4 FILE ASLI DENGAN BUKTI PEMBAYARAN SUKSES!');
+        
+        // ✅ CLEANUP SETELAH SUKSES
+        await _cleanupAfterSuccessfulUploadWithBukti();
+        
+        return {
+          'success': true,
+          'message': result['message'] ?? 'Semua dokumen berhasil diupload',
+          'data': result['data']
+        };
+      } else {
+        print('❌ UPLOAD 4 FILE ASLI DENGAN BUKTI PEMBAYARAN FAILED: ${result['message']}');
+        return {
+          'success': false,
+          'message': result['message'] ?? 'Upload dokumen gagal',
+          'token_expired': result['token_expired'] ?? false
+        };
+      }
+    } catch (e) {
+      _isUploading = false;
+      _uploadProgress = 0.0;
+      _uploadMessage = 'Upload error: $e';
+      print('❌ UPLOAD 4 FILE ASLI DENGAN BUKTI PEMBAYARAN ERROR: $e');
       
       return {
         'success': false,
@@ -647,7 +755,7 @@ Future<Map<String, dynamic>> uploadWithDummySystem() async {
     }
   }
 
-  // ✅ CLEANUP AFTER SUCCESSFUL UPLOAD (UNTUK UPLOAD DOKUMEN)
+  // ✅ CLEANUP AFTER SUCCESSFUL UPLOAD (UNTUK UPLOAD DOKUMEN VERSI LAMA)
   Future<void> _cleanupAfterSuccessfulUpload() async {
     try {
       // Clear files dari memory (HANYA 3 FILE ASLI)
@@ -670,6 +778,29 @@ Future<Map<String, dynamic>> uploadWithDummySystem() async {
     }
   }
 
+  // ✅ CLEANUP AFTER SUCCESSFUL UPLOAD DENGAN BUKTI PEMBAYARAN
+  Future<void> _cleanupAfterSuccessfulUploadWithBukti() async {
+    try {
+      // Clear semua file dari memory
+      _ktpFile = null;
+      _kkFile = null;
+      _diriFile = null;
+      _buktiPembayaranFile = null;
+      
+      _isUploading = false;
+      _uploadMessage = '';
+      _uploadProgress = 0.0;
+      
+      // Hapus temporary files dari storage
+      await _deleteTemporaryFilesWithBukti();
+      await _clearAllFileStatusWithBukti();
+      
+      print('🧹 Cleanup completed after successful upload with bukti pembayaran');
+    } catch (e) {
+      print('❌ Error during cleanup with bukti pembayaran: $e');
+    }
+  }
+
   // ✅ CLEANUP BUKTI TRANSFER (UNTUK RIIWAYAT TABUNGAN)
   Future<void> _cleanupBuktiTransfer() async {
     try {
@@ -689,7 +820,7 @@ Future<Map<String, dynamic>> uploadWithDummySystem() async {
     }
   }
 
-  // ✅ DELETE TEMPORARY FILES (HANYA 3 FILE ASLI)
+  // ✅ DELETE TEMPORARY FILES (HANYA 3 FILE ASLI) - VERSI LAMA
   Future<void> _deleteTemporaryFiles() async {
     try {
       final filesToDelete = [
@@ -706,6 +837,27 @@ Future<Map<String, dynamic>> uploadWithDummySystem() async {
       }
     } catch (e) {
       print('❌ Error deleting temporary files: $e');
+    }
+  }
+
+  // ✅ DELETE TEMPORARY FILES DENGAN BUKTI PEMBAYARAN
+  Future<void> _deleteTemporaryFilesWithBukti() async {
+    try {
+      final filesToDelete = [
+        if (_ktpFile != null) _ktpFile!,
+        if (_kkFile != null) _kkFile!,
+        if (_diriFile != null) _diriFile!,
+        if (_buktiPembayaranFile != null) _buktiPembayaranFile!,
+      ];
+
+      for (final file in filesToDelete) {
+        if (await file.exists()) {
+          await file.delete();
+          print('🗑️ Deleted temporary file: ${file.path}');
+        }
+      }
+    } catch (e) {
+      print('❌ Error deleting temporary files with bukti: $e');
     }
   }
 
@@ -730,12 +882,23 @@ Future<Map<String, dynamic>> uploadWithDummySystem() async {
     return missing;
   }
 
-  // ✅ PERBAIKAN: Clear all files - HANYA 3 FILE ASLI
+  // ✅ METHOD BARU: Get missing files list dengan bukti pembayaran
+  List<String> _getMissingFilesWithBukti() {
+    List<String> missing = [];
+    if (_ktpFile == null) missing.add('KTP');
+    if (_kkFile == null) missing.add('KK');
+    if (_diriFile == null) missing.add('Foto Diri');
+    if (_buktiPembayaranFile == null) missing.add('Bukti Pembayaran');
+    return missing;
+  }
+
+  // ✅ PERBAIKAN: Clear all files - SEMUA FILE
   Future<void> clearAllFiles() async {
     _ktpFile = null;
     _kkFile = null;
     _diriFile = null;
-    _buktiTransferFile = null; // ✅ CLEAR BUKTI TRANSFER JUGA
+    _buktiTransferFile = null;
+    _buktiPembayaranFile = null;
     // ❌ JANGAN CLEAR _dummyBuktiPath
     _isUploading = false;
     _uploadMessage = '';
@@ -764,15 +927,19 @@ Future<Map<String, dynamic>> uploadWithDummySystem() async {
         _dummyBuktiPath = null;
         await _clearFileStatus('dummy_bukti');
         break;
-      case 'bukti_transfer': // ✅ CASE BARU
+      case 'bukti_transfer':
         _buktiTransferFile = null;
         await _clearFileStatus('bukti_transfer');
+        break;
+      case 'bukti_pembayaran': // ✅ CASE BARU
+        _buktiPembayaranFile = null;
+        await _clearFileStatus('bukti_pembayaran');
         break;
     }
     print('🧹 $type file cleared');
   }
 
-  // ✅ PERBAIKAN: Save file status - TAMBAH DUMMY_BUKTI & BUKTI_TRANSFER
+  // ✅ PERBAIKAN: Save file status - TAMBAH BUKTI_PEMBAYARAN
   Future<void> _saveFileStatus(String type, String filePath) async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -784,7 +951,7 @@ Future<Map<String, dynamic>> uploadWithDummySystem() async {
     }
   }
 
-  // ✅ PERBAIKAN: Clear file status - TAMBAH DUMMY_BUKTI & BUKTI_TRANSFER
+  // ✅ PERBAIKAN: Clear file status - TAMBAH BUKTI_PEMBAYARAN
   Future<void> _clearFileStatus(String type) async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -796,7 +963,7 @@ Future<Map<String, dynamic>> uploadWithDummySystem() async {
     }
   }
 
-  // ✅ PERBAIKAN: Clear all file status - 3 ASLI + 1 DUMMY + 1 BUKTI_TRANSFER
+  // ✅ PERBAIKAN: Clear all file status - SEMUA FILE
   Future<void> _clearAllFileStatus() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -804,19 +971,39 @@ Future<Map<String, dynamic>> uploadWithDummySystem() async {
       await prefs.remove('temp_file_kk');
       await prefs.remove('temp_file_diri');
       await prefs.remove('temp_file_dummy_bukti');
-      await prefs.remove('temp_file_bukti_transfer'); // ✅ TAMBAH INI
+      await prefs.remove('temp_file_bukti_transfer');
+      await prefs.remove('temp_file_bukti_pembayaran'); // ✅ TAMBAH INI
       await prefs.setBool('has_file_ktp', false);
       await prefs.setBool('has_file_kk', false);
       await prefs.setBool('has_file_diri', false);
       await prefs.setBool('has_file_dummy_bukti', false);
-      await prefs.setBool('has_file_bukti_transfer', false); // ✅ TAMBAH INI
+      await prefs.setBool('has_file_bukti_transfer', false);
+      await prefs.setBool('has_file_bukti_pembayaran', false); // ✅ TAMBAH INI
       print('💾 All file status cleared');
     } catch (e) {
       print('❌ Error clearing all file status: $e');
     }
   }
 
-  // ✅ PERBAIKAN: Load files from storage - TAMBAH DUMMY_BUKTI & BUKTI_TRANSFER
+  // ✅ METHOD BARU: Clear all file status khusus untuk bukti pembayaran
+  Future<void> _clearAllFileStatusWithBukti() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('temp_file_ktp');
+      await prefs.remove('temp_file_kk');
+      await prefs.remove('temp_file_diri');
+      await prefs.remove('temp_file_bukti_pembayaran');
+      await prefs.setBool('has_file_ktp', false);
+      await prefs.setBool('has_file_kk', false);
+      await prefs.setBool('has_file_diri', false);
+      await prefs.setBool('has_file_bukti_pembayaran', false);
+      print('💾 All file status with bukti cleared');
+    } catch (e) {
+      print('❌ Error clearing all file status with bukti: $e');
+    }
+  }
+
+  // ✅ PERBAIKAN: Load files from storage - TAMBAH BUKTI_PEMBAYARAN
   Future<void> loadFilesFromStorage() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -825,7 +1012,8 @@ Future<Map<String, dynamic>> uploadWithDummySystem() async {
       final kkPath = prefs.getString('temp_file_kk');
       final diriPath = prefs.getString('temp_file_diri');
       final dummyBuktiPath = prefs.getString('temp_file_dummy_bukti');
-      final buktiTransferPath = prefs.getString('temp_file_bukti_transfer'); // ✅ LOAD BARU
+      final buktiTransferPath = prefs.getString('temp_file_bukti_transfer');
+      final buktiPembayaranPath = prefs.getString('temp_file_bukti_pembayaran'); // ✅ LOAD BARU
 
       if (ktpPath != null && await File(ktpPath).exists()) {
         _ktpFile = File(ktpPath);
@@ -857,12 +1045,19 @@ Future<Map<String, dynamic>> uploadWithDummySystem() async {
         print('📁 Loaded Bukti Transfer from storage: $buktiTransferPath');
       }
 
+      // ✅ LOAD BUKTI PEMBAYARAN
+      if (buktiPembayaranPath != null && await File(buktiPembayaranPath).exists()) {
+        _buktiPembayaranFile = File(buktiPembayaranPath);
+        print('📁 Loaded Bukti Pembayaran from storage: $buktiPembayaranPath');
+      }
+
       print('📁 Storage loading completed. Files loaded: ${[
         if (_ktpFile != null) 'KTP',
         if (_kkFile != null) 'KK',
         if (_diriFile != null) 'Foto Diri',
         if (_dummyBuktiPath != null) 'Dummy Bukti',
         if (_buktiTransferFile != null) 'Bukti Transfer',
+        if (_buktiPembayaranFile != null) 'Bukti Pembayaran',
       ].join(', ')}');
     } catch (e) {
       print('❌ Error loading files from storage: $e');
@@ -887,7 +1082,7 @@ Future<Map<String, dynamic>> uploadWithDummySystem() async {
     }
   }
 
-  // ✅ PERBAIKAN: Get file info - TAMBAH DUMMY_BUKTI & BUKTI_TRANSFER
+  // ✅ PERBAIKAN: Get file info - TAMBAH BUKTI_PEMBAYARAN
   Map<String, dynamic> getFileInfo(String type) {
     dynamic file;
     String name = '';
@@ -911,9 +1106,13 @@ Future<Map<String, dynamic>> uploadWithDummySystem() async {
         name = 'Foto Bukti (Auto)';
         isDummy = true;
         break;
-      case 'bukti_transfer': // ✅ CASE BARU
+      case 'bukti_transfer':
         file = _buktiTransferFile;
         name = 'Bukti Transfer';
+        break;
+      case 'bukti_pembayaran': // ✅ CASE BARU
+        file = _buktiPembayaranFile;
+        name = 'Bukti Pembayaran';
         break;
     }
 
@@ -986,40 +1185,45 @@ Future<Map<String, dynamic>> uploadWithDummySystem() async {
     }
   }
 
-  // ✅ PERBAIKAN: Get all files info - TAMBAH DUMMY_BUKTI & BUKTI_TRANSFER
+  // ✅ PERBAIKAN: Get all files info - TAMBAH BUKTI_PEMBAYARAN
   Map<String, dynamic> getAllFilesInfo() {
     return {
       'ktp': getFileInfo('ktp'),
       'kk': getFileInfo('kk'),
       'diri': getFileInfo('diri'),
       'dummy_bukti': getFileInfo('dummy_bukti'),
-      'bukti_transfer': getFileInfo('bukti_transfer'), // ✅ TAMBAH INI
+      'bukti_transfer': getFileInfo('bukti_transfer'),
+      'bukti_pembayaran': getFileInfo('bukti_pembayaran'), // ✅ TAMBAH INI
       'all_complete': isAllFilesComplete,
-      'bukti_transfer_complete': isBuktiTransferComplete, // ✅ TAMBAH INI
+      'all_with_bukti_complete': isAllFilesWithBuktiComplete, // ✅ TAMBAH INI
+      'bukti_transfer_complete': isBuktiTransferComplete,
       'is_uploading': _isUploading,
       'upload_message': _uploadMessage,
       'upload_progress': _uploadProgress,
     };
   }
 
-  // ✅ PERBAIKAN: Debug info - TAMBAH DUMMY_BUKTI & BUKTI_TRANSFER
+  // ✅ PERBAIKAN: Debug info - TAMBAH BUKTI_PEMBAYARAN
   void printDebugInfo() {
     print('🐛 === TEMPORARY STORAGE DEBUG ===');
     print('📁 KTP: ${_ktpFile?.path ?? "NULL"}');
     print('📁 KK: ${_kkFile?.path ?? "NULL"}');
     print('📁 Foto Diri: ${_diriFile?.path ?? "NULL"}');
     print('📁 Dummy Bukti: ${_dummyBuktiPath ?? "NULL"}');
-    print('📁 Bukti Transfer: ${_buktiTransferFile?.path ?? "NULL"}'); // ✅ TAMBAH INI
+    print('📁 Bukti Transfer: ${_buktiTransferFile?.path ?? "NULL"}');
+    print('📁 Bukti Pembayaran: ${_buktiPembayaranFile?.path ?? "NULL"}'); // ✅ TAMBAH INI
     print('🔄 Is Uploading: $_isUploading');
     print('💬 Upload Message: $_uploadMessage');
     print('📊 Upload Progress: ${(_uploadProgress * 100).toStringAsFixed(1)}%');
-    print('✅ All Complete: $isAllFilesComplete');
-    print('✅ Bukti Transfer Complete: $isBuktiTransferComplete'); // ✅ TAMBAH INI
+    print('✅ All Complete (3+1): $isAllFilesComplete');
+    print('✅ All With Bukti Complete (4 asli): $isAllFilesWithBuktiComplete'); // ✅ TAMBAH INI
+    print('✅ Bukti Transfer Complete: $isBuktiTransferComplete');
     
     final filesInfo = getAllFilesInfo();
     for (final entry in filesInfo.entries) {
-      if (entry.key != 'all_complete' && entry.key != 'bukti_transfer_complete' && 
-          entry.key != 'is_uploading' && entry.key != 'upload_message' && entry.key != 'upload_progress') {
+      if (entry.key != 'all_complete' && entry.key != 'all_with_bukti_complete' && 
+          entry.key != 'bukti_transfer_complete' && entry.key != 'is_uploading' && 
+          entry.key != 'upload_message' && entry.key != 'upload_progress') {
         final info = entry.value as Map<String, dynamic>;
         print('📄 ${entry.key.toUpperCase()}:');
         print('   - Exists: ${info['exists']}');

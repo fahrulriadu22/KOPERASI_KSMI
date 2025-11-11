@@ -4,6 +4,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'screens/login_screen.dart';
 import 'screens/dashboard_main.dart';
 import 'screens/upload_dokumen_screen.dart';
+import 'screens/aktivasi_akun_screen.dart';
+import 'screens/syarat_dan_ketentuan.dart';
+import 'screens/aktivasi_berhasil_screen.dart';
 import 'services/api_service.dart';
 import 'services/firebase_service.dart';
 import 'package:workmanager/workmanager.dart';
@@ -154,7 +157,6 @@ Future<void> _initializeFirebaseServices() async {
   }
 }
 
-// ... (setupNotificationCallbacks dan method lainnya tetap sama)
 void _setupNotificationCallbacks() {
   FirebaseService.onNotificationTap = (Map<String, dynamic> data) {
     _handleNotificationNavigation(data);
@@ -367,10 +369,12 @@ class _KoperasiKSMIAppState extends State<KoperasiKSMIApp> with WidgetsBindingOb
     });
     
     _subscribeToUserTopics(userData);
-    _checkUserStatusAndNavigate(userData);
+    
+    // ✅ CEK APAKAH USER SUDAH MELAKUKAN AKTIVASI
+    _checkUserActivationStatus(userData);
   }
 
-  void _checkUserStatusAndNavigate(Map<String, dynamic> userData) {
+  void _checkUserActivationStatus(Map<String, dynamic> userData) {
     final statusUser = userData['status_user']?.toString() ?? '0';
     final isVerified = statusUser == '1';
     
@@ -387,16 +391,50 @@ class _KoperasiKSMIAppState extends State<KoperasiKSMIApp> with WidgetsBindingOb
             (route) => false,
           );
         } else {
-          print('📱 Redirecting to Profile (Unverified User)');
-          navigatorKey.currentState!.pushAndRemoveUntil(
-            MaterialPageRoute(
-              builder: (context) => ProfileScreen(user: userData),
-            ),
-            (route) => false,
-          );
+          // ✅ CEK APAKAH SUDAH UPLOAD DOKUMEN
+          _checkDocumentUploadStatus(userData);
         }
       }
     });
+  }
+
+  void _checkDocumentUploadStatus(Map<String, dynamic> userData) {
+    final fotoKtp = userData['foto_ktp']?.toString() ?? '';
+    final fotoKk = userData['foto_kk']?.toString() ?? '';
+    final fotoDiri = userData['foto_diri']?.toString() ?? '';
+    final fotoBukti = userData['foto_bukti']?.toString() ?? '';
+    
+    final hasUploadedDocuments = fotoKtp.isNotEmpty && 
+                                fotoKk.isNotEmpty && 
+                                fotoDiri.isNotEmpty && 
+                                fotoBukti.isNotEmpty;
+    
+    print('📄 Document Upload Status:');
+    print('   - KTP: ${fotoKtp.isNotEmpty}');
+    print('   - KK: ${fotoKk.isNotEmpty}');
+    print('   - Foto Diri: ${fotoDiri.isNotEmpty}');
+    print('   - Bukti: ${fotoBukti.isNotEmpty}');
+    print('   - All Uploaded: $hasUploadedDocuments');
+    
+    if (hasUploadedDocuments) {
+      // ✅ SUDAH UPLOAD DOKUMEN, LANGSUNG KE PROFILE
+      print('📱 Redirecting to Profile (Documents Uploaded)');
+      navigatorKey.currentState!.pushAndRemoveUntil(
+        MaterialPageRoute(
+          builder: (context) => ProfileScreen(user: userData),
+        ),
+        (route) => false,
+      );
+    } else {
+      // ✅ BELUM UPLOAD DOKUMEN, MULAI PROSES AKTIVASI
+      print('📱 Starting Activation Process (New User)');
+      navigatorKey.currentState!.pushAndRemoveUntil(
+        MaterialPageRoute(
+          builder: (context) => AktivasiAkunScreen(user: userData),
+        ),
+        (route) => false,
+      );
+    }
   }
 
   Future<void> _handleLogout() async {
@@ -466,33 +504,70 @@ class _KoperasiKSMIAppState extends State<KoperasiKSMIApp> with WidgetsBindingOb
       theme: _buildAppTheme(),
       navigatorKey: navigatorKey,
       scaffoldMessengerKey: scaffoldMessengerKey,
-      home: const AuthWrapper(),
+      home: _isLoading
+          ? _buildLoadingScreen()
+          : _isLoggedIn
+              ? _buildHomeScreen()
+              : LoginScreen(onLoginSuccess: _handleLoginSuccess),
     );
   }
 
-  ThemeData _buildAppTheme() {
-    return ThemeData(
-      primaryColor: Colors.green[800],
-      primarySwatch: Colors.green,
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: Colors.green[800]!,
-        primary: Colors.green[800]!,
-        secondary: Colors.greenAccent[400]!,
-        background: Colors.green[50]!,
-      ),
-      scaffoldBackgroundColor: Colors.green[50],
-      appBarTheme: AppBarTheme(
-        backgroundColor: Colors.green[800],
-        foregroundColor: Colors.white,
-        elevation: 4,
-        titleTextStyle: const TextStyle(
-          fontSize: 18,
-          fontWeight: FontWeight.bold,
-          color: Colors.white,
+  Widget _buildLoadingScreen() {
+    return Scaffold(
+      backgroundColor: Colors.green[50],
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(
+              color: Colors.green[700],
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Memuat aplikasi...',
+              style: TextStyle(
+                color: Colors.green[700],
+                fontSize: 16,
+              ),
+            ),
+          ],
         ),
-        centerTitle: true,
-        iconTheme: const IconThemeData(color: Colors.white),
       ),
+    );
+  }
+
+  // ✅ PERBAIKAN: Method ini harus mengembalikan Widget, bukan void
+  Widget _buildHomeScreen() {
+    // Panggil method untuk menentukan halaman yang tepat
+    _checkUserActivationStatus(_userData);
+    
+    // Sementara kembalikan loading screen atau AuthWrapper
+    // Setelah navigasi selesai, ini akan diganti
+    return const AuthWrapper();
+  }
+
+ThemeData _buildAppTheme() {
+  return ThemeData(
+    primaryColor: Colors.green[800],
+    primarySwatch: Colors.green,
+    colorScheme: ColorScheme.fromSeed(
+      seedColor: Colors.green[800]!,
+      primary: Colors.green[800]!,
+      secondary: Colors.greenAccent[400]!,
+    ),
+    // HAPUS scaffoldBackgroundColor ← biar default
+    appBarTheme: AppBarTheme(
+      backgroundColor: Colors.green[800],
+      foregroundColor: Colors.white,
+      elevation: 4,
+      titleTextStyle: const TextStyle(
+        fontSize: 18,
+        fontWeight: FontWeight.bold,
+        color: Colors.white,
+      ),
+      centerTitle: true,
+      iconTheme: const IconThemeData(color: Colors.white),
+    ),
       inputDecorationTheme: InputDecorationTheme(
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),

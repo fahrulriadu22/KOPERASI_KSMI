@@ -6,7 +6,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
 import 'package:flutter/services.dart';
 import '../services/temporary_storage_service.dart';
-import 'dart:ui' as ui; // Untuk decodeImageFromList
 import 'package:flutter/painting.dart'; // Untuk NetworkImage
 import '../services/file_validator.dart';
 import 'auth_wrapper.dart';
@@ -249,17 +248,16 @@ Future<void> _loadUserInfoFromServer() async {
   }
 }
 
-// ✅ FIX: LOAD CURRENT USER DENGAN PROPER STATE MANAGEMENT
 Future<void> _loadCurrentUser() async {
   try {
     if (mounted) {
       setState(() {
         _isRefreshing = true;
-        _isLoading = true; // ✅ TAMBAHKAN INI
+        _isLoading = true;
       });
     }
     
-    print('🔄 Loading SUPER COMPLETE user data...');
+    print('🔄 Loading user data for profile...');
     
     // ✅ PRIORITAS 1: AMBIL DATA SUPER LENGKAP
     final superResult = await _apiService.getCompleteUserInfo();
@@ -287,7 +285,7 @@ Future<void> _loadCurrentUser() async {
     print('❌ Error loading current user: $e');
     await _loadLocalDataFallback();
   } finally {
-    // ✅ FIX: PASTIKAN LOADING STATE DIUPDATE
+    // ✅ PASTIKAN INI SELALU DIJALANKAN
     if (mounted) {
       setState(() {
         _isLoading = false;
@@ -1721,10 +1719,17 @@ Future<void> _refreshProfile() async {
       setState(() => _isRefreshing = false);
       
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Profile berhasil diperbarui'),
-          backgroundColor: Colors.green,
-          duration: Duration(seconds: 2),
+        SnackBar(
+          content: const Text(
+            'Profile berhasil diperbarui',
+            style: TextStyle(color: Colors.white), // ← TEXT PUTIH
+          ),
+          backgroundColor: Colors.green[700], // ← BACKGROUND HIJAU
+          duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
         ),
       );
     }
@@ -1736,9 +1741,16 @@ Future<void> _refreshProfile() async {
       
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Gagal memperbarui profile: $e'),
-          backgroundColor: Colors.red,
+          content: Text(
+            'Gagal memperbarui profile: $e',
+            style: const TextStyle(color: Colors.white), // ← TEXT PUTIH
+          ),
+          backgroundColor: Colors.red, // ← BACKGROUND MERAH
           duration: const Duration(seconds: 3),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
         ),
       );
     }
@@ -2668,157 +2680,6 @@ Widget _buildDomisiliAddressSection() {
             _buildInfoTile(Icons.calendar_today, 'Bergabung Sejak', _getTahunGabung()),
             _buildInfoTile(Icons.verified, 'Status Keanggotaan', 'Aktif'),
             _buildInfoTile(Icons.fingerprint, 'ID Member', _currentUser['id']?.toString() ?? _currentUser['user_id']?.toString() ?? '-'),
-            // ✅ TAMBAHKAN USER KEY DI SINI - FIXED
-            _buildInfoTile(Icons.vpn_key, 'User Key', _getUserKeyDisplay(), maxLines: 2),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ✅ BUILD SUPER API ACCESS SECTION
-  Widget _buildApiAccessSection() {
-    // ✅ AMBIL DATA DARI SEMUA SUMBER YANG MUNGKIN
-    final userKey = _currentUser['user_key']?.toString() ?? 
-                  _currentUser['token']?.toString() ?? 
-                  'Tidak tersedia';
-    
-    final userId = _currentUser['user_id']?.toString() ?? 
-                  _currentUser['id']?.toString() ?? 
-                  'Tidak tersedia';
-    
-    final username = _currentUser['username']?.toString() ?? 'Tidak tersedia';
-
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.api, color: Colors.purple[700]),
-                const SizedBox(width: 8),
-                const Text(
-                  'API Access Information',
-                  style: TextStyle(
-                    fontSize: 18, 
-                    fontWeight: FontWeight.bold
-                  ),
-                ),
-              ],
-            ),
-            const Divider(height: 20),
-            
-            // ✅ SYSTEM INFO
-            _buildInfoTile(Icons.vpn_key, 'User Key', 
-              userKey != 'Tidak tersedia' ? _getUserKeyDisplay(userKey) : 'Tidak tersedia', 
-              maxLines: 2),
-            
-            _buildInfoTile(Icons.fingerprint, 'User ID', userId, maxLines: 1),
-            _buildInfoTile(Icons.person, 'Username', username, maxLines: 1),
-            
-            const SizedBox(height: 16),
-            
-            if (userKey != 'Tidak tersedia') ...[
-              Text(
-                'Gunakan data berikut untuk testing API di Postman:',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[600],
-                ),
-              ),
-              const SizedBox(height: 12),
-              
-              // ✅ COPY USER KEY BUTTON
-              SizedBox(
-                width: double.infinity,
-                height: 45,
-                child: ElevatedButton.icon(
-                  onPressed: () => _copyUserKeyToClipboard(userKey),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.purple[700],
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  icon: const Icon(Icons.content_copy, size: 20),
-                  label: const Text(
-                    'Copy User Key',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
-              
-              const SizedBox(height: 12),
-              
-              // ✅ CURL COMMAND EXAMPLE
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.purple[50],
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.purple[200]!),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Contoh curl command untuk getInbox:',
-                      style: TextStyle(
-                        color: Colors.purple[700],
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    SelectableText(
-                      'curl -X POST "http://demo.bsdeveloper.id/api/transaction/getAllinbox" \\\\\n'
-                      '  -H "DEVICE-ID: 12341231313131" \\\\\n'
-                      '  -H "x-api-key: $userKey" \\\\\n'
-                      '  -H "Content-Type: application/x-www-form-urlencoded" \\\\\n'
-                      '  -d ""',
-                      style: TextStyle(
-                        color: Colors.purple[700],
-                        fontSize: 10,
-                        fontFamily: 'Monospace',
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'User ID: $userId | Username: $username',
-                      style: TextStyle(
-                        color: Colors.purple[600],
-                        fontSize: 10,
-                        fontStyle: FontStyle.italic,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ] else ...[
-              _buildInfoTile(Icons.vpn_key, 'User Key', 'Tidak tersedia', maxLines: 1),
-              const SizedBox(height: 8),
-              Text(
-                'User key tidak tersedia. Silakan refresh profile.',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[600],
-                ),
-              ),
-              const SizedBox(height: 12),
-              ElevatedButton.icon(
-                onPressed: _refreshProfile,
-                icon: const Icon(Icons.refresh),
-                label: const Text('Refresh Data'),
-              ),
-            ],
           ],
         ),
       ),
@@ -2840,18 +2701,20 @@ String _getUserKeyDisplay([String? userKey]) {
   return keyFromUser.length > 20 ? '${keyFromUser.substring(0, 20)}...' : keyFromUser;
 }
 
-  // ✅ BUILD ACTION BUTTONS
-  Widget _buildActionButtons() {
-    return Row(
+// ✅ FIX: BUILD ACTION BUTTONS HORIZONTAL BERPAPINGAN
+Widget _buildActionButtons() {
+  print('🔘 ActionButtons building - Horizontal layout');
+  
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8),
+    child: Row(
       children: [
+        // EDIT PROFILE BUTTON - 48% width
         Expanded(
-          child: OutlinedButton.icon(
-            style: OutlinedButton.styleFrom(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              side: BorderSide(color: Colors.green[700]!),
-            ),
+          flex: 48,
+          child: ElevatedButton.icon(
             onPressed: _isUploading ? null : () {
+              print('✏️ Edit profile tapped');
               Navigator.push(
                 context,
                 MaterialPageRoute(
@@ -2867,40 +2730,55 @@ String _getUserKeyDisplay([String? userKey]) {
                 ),
               );
             },
-            icon: Icon(Icons.edit, color: _isUploading ? Colors.grey : Colors.green[700]),
-            label: Text(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green[700],
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            icon: const Icon(Icons.edit, size: 18),
+            label: const Text(
               'Edit Profil',
               style: TextStyle(
-                fontSize: 16, 
-                color: _isUploading ? Colors.grey : Colors.green[700],
-                fontWeight: FontWeight.w600
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),
         ),
-        const SizedBox(width: 12),
+        
+        // SPACER - 4% width
+        const Expanded(flex: 4, child: SizedBox(width: 8)),
+        
+        // LOGOUT BUTTON - 48% width  
         Expanded(
+          flex: 48,
           child: ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _isUploading ? Colors.grey : Colors.red[600],
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              padding: const EdgeInsets.symmetric(vertical: 14),
-            ),
             onPressed: _isUploading ? null : _logout,
-            icon: const Icon(Icons.logout, color: Colors.white, size: 20),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red[600],
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            icon: const Icon(Icons.logout, size: 18),
             label: const Text(
               'Keluar',
               style: TextStyle(
-                fontSize: 16, 
-                color: Colors.white,
-                fontWeight: FontWeight.w600
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),
         ),
       ],
-    );
-  }
+    ),
+  );
+}
 
 // ✅ HELPER: BUILD INFO TILE YANG LEBIH SAFE
 Widget _buildInfoTile(IconData icon, String label, String? value, {int maxLines = 1}) {
@@ -3108,10 +2986,8 @@ Widget build(BuildContext context) {
   print('   - Auth Status: $_authStatusUser');
   print('   - Final Status: $_finalStatusUser → Verified: $isVerified');
   
-  // ✅ DEBUG: TAMPILKAN SEMUA DATA SETIAP KALI BUILD
   _debugAllUserData();
   
-  // ✅ TAMBAHKAN DEBUG LOG SETIAP KALI BUILD DIPANGGIL
   print('🔄 BUILD METHOD CALLED - _isLoading: $_isLoading, UserData: ${_currentUser.isNotEmpty}');
   print('   - username: ${_currentUser['username']}');
   print('   - nama: ${_currentUser['nama']}');
@@ -3144,7 +3020,6 @@ Widget build(BuildContext context) {
     );
   }
 
-  // ✅ CEK JIKA DATA USER MASIH KOSONG
   final hasUserData = _currentUser.isNotEmpty && 
                       (_currentUser['username'] != null || 
                        _currentUser['nama'] != null);
@@ -3212,7 +3087,6 @@ Widget build(BuildContext context) {
         automaticallyImplyLeading: false,
         centerTitle: true,
         actions: [
-          // ✅ TAMBAH DASHBOARD BUTTON JIKA USER VERIFIED
           if (isVerified)
           IconButton(
             icon: _isRefreshing 
@@ -3231,90 +3105,75 @@ Widget build(BuildContext context) {
         ],
       ),
     ),
-    body: RefreshIndicator(
-      onRefresh: _refreshProfile,
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            _buildStatusRestrictionBanner(),
+    body: SafeArea( // ✅ TAMBAH SafeArea DI SINI
+      bottom: true, // ✅ PASTIKAN BOTTOM SafeArea AKTIF
+      child: RefreshIndicator(
+        onRefresh: _refreshProfile,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.only( // ✅ UPDATE PADDING
+            left: 16,
+            right: 16,
+            top: 16,
+            bottom: 80, // ✅ TAMBAH BOTTOM PADDING UNTUK NAVIGATION BAR
+          ),
+          child: Column(
+            children: [
+              _buildStatusRestrictionBanner(),
 
-            // ✅ ERROR MESSAGE
-            if (_uploadError != null) ...[
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                margin: const EdgeInsets.only(bottom: 16),
-                decoration: BoxDecoration(
-                  color: Colors.red[50],
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.red[200]!),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.error_outline, color: Colors.red[700], size: 20),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        _uploadError!,
-                        style: TextStyle(
-                          color: Colors.red[700],
-                          fontSize: 12,
+              if (_uploadError != null) ...[
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.red[50],
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.red[200]!),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.error_outline, color: Colors.red[700], size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _uploadError!,
+                          style: TextStyle(
+                            color: Colors.red[700],
+                            fontSize: 12,
+                          ),
                         ),
                       ),
-                    ),
-                    IconButton(
-                      icon: Icon(Icons.close, color: Colors.red[700], size: 16),
-                      onPressed: () => setState(() => _uploadError = null),
-                    ),
-                  ],
+                      IconButton(
+                        icon: Icon(Icons.close, color: Colors.red[700], size: 16),
+                        onPressed: () => setState(() => _uploadError = null),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
+              ],
+
+              _buildProfileHeader(),
+              _buildUserStatusBanner(),
+              const SizedBox(height: 16),
+
+              if (!isVerified) _buildVerificationTimeline(),
+              const SizedBox(height: 16),
+
+              _buildPersonalInfoSection(),
+              const SizedBox(height: 16),
+              _buildKtpAddressSection(),
+              const SizedBox(height: 16),
+              _buildDomisiliAddressSection(),
+              const SizedBox(height: 16),
+              _buildCooperativeInfoSection(),
+              const SizedBox(height: 16),
+
+              // ✅ ACTION BUTTONS - SEKARANG PASTI KELIHATAN
+              _buildActionButtons(),
+
+              const SizedBox(height: 40), // ✅ TAMBAH EXTRA SPACE DI BAWAH
             ],
-
-            // ✅ PROFILE HEADER
-            _buildProfileHeader(),
-
-            // ✅ USER STATUS BANNER
-            _buildUserStatusBanner(),
-
-            const SizedBox(height: 16),
-
-            // ✅ VERIFICATION TIMELINE UNTUK STATUS 0
-            if (!isVerified) _buildVerificationTimeline(),
-
-            const SizedBox(height: 16),
-
-            // ✅ INFORMASI PRIBADI
-            _buildPersonalInfoSection(),
-
-            const SizedBox(height: 16),
-
-            // ✅ ALAMAT KTP
-            _buildKtpAddressSection(),
-
-            const SizedBox(height: 16),
-
-            // ✅ ALAMAT DOMISILI
-            _buildDomisiliAddressSection(),
-
-            const SizedBox(height: 16),
-
-            // ✅ INFORMASI KOPERASI
-            _buildCooperativeInfoSection(),
-
-            const SizedBox(height: 16),
-
-            // ✅ API ACCESS SECTION
-            _buildApiAccessSection(),
-
-            const SizedBox(height: 30),
-
-            // ✅ ACTION BUTTONS
-            _buildActionButtons(),
-
-            const SizedBox(height: 20),
-          ],
+          ),
         ),
       ),
     ),

@@ -2167,89 +2167,6 @@ Widget _buildStatusChip(String text, Color color, IconData icon) {
   );
 }
 
-Widget _buildUploadBuktiButton(Map<String, dynamic> transaksi) {
-  final canUpload = transaksi['can_upload_bukti'] == true;
-  final hasBukti = transaksi['has_bukti'] == true;
-  final isUploadingThis = _isUploadingBukti && _selectedTransaksiForUpload?['id'] == transaksi['id'];
-
-  if (!canUpload) {
-    return const SizedBox.shrink();
-  }
-
-  // ✅ JIKA SUDAH ADA BUKTI
-  if (hasBukti) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: Colors.blue[50],
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: Colors.blue[200]!),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.check_circle,
-            color: Colors.blue,
-            size: 12,
-          ),
-          const SizedBox(width: 4),
-          Text(
-            'Bukti Terupload',
-            style: TextStyle(
-              color: Colors.blue,
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  if (isUploadingThis) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      child: const SizedBox(
-        width: 16,
-        height: 16,
-        child: CircularProgressIndicator(strokeWidth: 2),
-      ),
-    );
-  }
-
-  return GestureDetector(
-    onTap: () => _uploadBuktiPembayaran(transaksi),
-    child: Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: Colors.orange[50],
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: Colors.orange[200]!),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.upload,
-            color: Colors.orange,
-            size: 12,
-          ),
-          const SizedBox(width: 4),
-          Text(
-            'Upload Bukti',
-            style: TextStyle(
-              color: Colors.orange,
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
-}
-
 // ✅ TEST UPLOAD BUKTI
 void _testUploadBukti() async {
   try {
@@ -2670,13 +2587,6 @@ Widget build(BuildContext context) {
                                                     overflow: TextOverflow.ellipsis,
                                                   ),
                                                   const SizedBox(height: 4),
-                                                  Row(
-                                                    children: [
-                                                      _getStatusVerifikasi(transaksi),
-                                                      const SizedBox(width: 8),
-                                                      if (canUploadBukti) _buildUploadBuktiButton(transaksi),
-                                                    ],
-                                                  ),
                                                 ],
                                               ),
                                             ),

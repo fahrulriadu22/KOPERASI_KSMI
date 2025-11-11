@@ -1053,13 +1053,20 @@ Future<void> _refreshData() async {
     // ✅ Panggil callback jika ada
     widget.onRefresh?.call();
     
-    // ✅ CEK MOUNTED SEBELUM SHOW SNACKBAR
+    // ✅ CEK MOUNTED SEBELUM SHOW SNACKBAR - FIX BACKGROUND
     if (mounted && !_hasError) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Data berhasil diperbarui'),
-          backgroundColor: Colors.green,
-          duration: Duration(seconds: 2),
+        SnackBar(
+          content: const Text(
+            'Data berhasil diperbarui',
+            style: TextStyle(color: Colors.white), // ← TEXT PUTIH
+          ),
+          backgroundColor: Colors.green[700], // ← BACKGROUND HIJAU
+          duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
         ),
       );
     }
@@ -1074,6 +1081,24 @@ Future<void> _refreshData() async {
       _hasError = true;
       _errorMessage = 'Gagal refresh data: $e';
     });
+    
+    // ✅ FIX ERROR SNACKBAR JUGA
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Gagal refresh data: ${e.toString()}',
+            style: const TextStyle(color: Colors.white),
+          ),
+          backgroundColor: Colors.red, // ← BACKGROUND MERAH
+          duration: const Duration(seconds: 3),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+      );
+    }
   }
 }
 
@@ -1867,6 +1892,9 @@ Widget build(BuildContext context) {
     body: SafeArea(
       child: RefreshIndicator(
         onRefresh: _refreshData,
+        backgroundColor: Colors.green[700], // ← BACKGROUND HIJAU
+        color: Colors.white, // ← PANAH PUTIH
+        strokeWidth: 2.0,
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
           physics: const AlwaysScrollableScrollPhysics(),

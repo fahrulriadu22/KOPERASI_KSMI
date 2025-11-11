@@ -36,6 +36,37 @@ class BottomNavShape extends ContinuousRectangleBorder {
   }
 }
 
+class _BottomNavClipper extends CustomClipper<Path> {
+  @override
+  Path getClip(Size size) {
+    final double curveHeight = 25.0;
+    final double curveWidth = 50.0;
+    
+    return Path()
+      ..moveTo(0, size.height) // kiri bawah
+      ..lineTo(size.width, size.height) // kanan bawah
+      ..lineTo(size.width, curveHeight) // kanan atas (sebelum kurva)
+      ..quadraticBezierTo(
+        size.width, 
+        0,
+        size.width - curveWidth, 
+        0,
+      )
+      ..lineTo(curveWidth, 0) // kiri atas (sebelum kurva)
+      ..quadraticBezierTo(
+        0, 
+        0,
+        0, 
+        curveHeight,
+      )
+      ..lineTo(0, size.height) // kembali ke kiri bawah
+      ..close();
+  }
+
+  @override
+  bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
+}
+
 class DashboardMain extends StatefulWidget {
   final Map<String, dynamic> user;
 
@@ -304,52 +335,65 @@ Future<void> _loadUnreadNotifications() async {
     }
   }
 
-  // ✅ PERBAIKAN: Refresh user data dengan loading state
-  Future<void> _refreshUserData() async {
-    try {
-      print('🔄 Refreshing user data...');
-      
-      if (mounted) {
-        setState(() {
-          _isRefreshing = true;
-        });
-      }
-      
-      await Future.wait([
-        _loadCurrentUser(),
-        _loadUnreadNotifications(),
-      ]);
-      
-      print('✅ User data refreshed successfully');
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Data berhasil diperbarui'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 2),
+Future<void> _refreshUserData() async {
+  try {
+    print('🔄 Refreshing user data...');
+    
+    if (mounted) {
+      setState(() {
+        _isRefreshing = true;
+      });
+    }
+    
+    await Future.wait([
+      _loadCurrentUser(),
+      _loadUnreadNotifications(),
+    ]);
+    
+    print('✅ User data refreshed successfully');
+    
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text(
+            'Data berhasil diperbarui',
+            style: TextStyle(color: Colors.white), // ← TEXT PUTIH
           ),
-        );
-      }
-    } catch (e) {
-      print('❌ Error refreshing data: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Gagal memperbarui data: ${e.toString()}'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 3),
+          backgroundColor: Colors.green[700], // ← BACKGROUND HIJAU
+          duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
           ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isRefreshing = false;
-        });
-      }
+        ),
+      );
+    }
+  } catch (e) {
+    print('❌ Error refreshing data: $e');
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Gagal memperbarui data: ${e.toString()}',
+            style: const TextStyle(color: Colors.white),
+          ),
+          backgroundColor: Colors.red, // ← BACKGROUND MERAH KALAU ERROR
+          duration: const Duration(seconds: 3),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+      );
+    }
+  } finally {
+    if (mounted) {
+      setState(() {
+        _isRefreshing = false;
+      });
     }
   }
+}
 
   void _onItemTapped(int index) {
     print('📍 Navigation item tapped: $index');
@@ -569,25 +613,37 @@ Future<void> _loadUnreadNotifications() async {
   }
 
 Widget _buildMainScreen() {
-// Di _DashboardMainState
-final List<Widget> pages = [
-  DashboardScreen(user: userData, onRefresh: _refreshUserData),     // Index 0
-  RiwayatTabunganScreen(user: userData),                           // Index 1  
-  RiwayatAngsuranScreen(user: userData),                           // Index 2
-  ProfileScreen(user: userData, onProfileUpdated: _refreshUserData, onLogout: _performLogout), // Index 3
-];
+  final List<Widget> pages = [
+    DashboardScreen(user: userData, onRefresh: _refreshUserData),
+    RiwayatTabunganScreen(user: userData),
+    RiwayatAngsuranScreen(user: userData),
+    ProfileScreen(
+      user: userData, 
+      onProfileUpdated: _refreshUserData, 
+      onLogout: _performLogout
+    ),
+  ];
 
   return Scaffold(
-    backgroundColor: Colors.white,
-    body: IndexedStack(
-      index: _selectedIndex,
-      children: pages,
+    backgroundColor: Colors.transparent, // ← BACKGROUND TRANSPARAN
+    extendBody: true, // ← PENTING!
+    body: Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient( // ← OPSIONAL: kasih gradient biar ga polos
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Colors.green, Colors.greenAccent],
+        ),
+      ),
+      child: IndexedStack(
+        index: _selectedIndex,
+        children: pages,
+      ),
     ),
-    bottomNavigationBar: _buildPlatformSpecificBottomNav(), // ← PERBAIKAN DI SINI
+    bottomNavigationBar: _buildWebAndLinuxBottomNav(),
   );
 }
 
-// ✅ ADD THIS METHOD TO FIX THE ISSUE
 Widget _buildPlatformSpecificBottomNav() {
   if (_isWeb || _isLinux) {
     return _buildWebAndLinuxBottomNav();
@@ -596,106 +652,116 @@ Widget _buildPlatformSpecificBottomNav() {
   } else if (_isIOS) {
     return _buildIOSBottomNav();
   } else {
-    return _buildDefaultBottomNav();
+    return _buildUniversalBottomNav(); // Ganti ke universal
   }
 }
 
 Widget _buildUniversalBottomNav() {
-  // ✅ PASTIKAN SELALU RETURN BOTTOM NAVIGATION
-  return BottomNavigationBar(
-    currentIndex: _selectedIndex,
-    onTap: _onItemTapped,
-    type: BottomNavigationBarType.fixed,
-    backgroundColor: Colors.green[700],
-    selectedItemColor: Colors.white,
-    unselectedItemColor: Colors.white.withOpacity(0.6),
-    selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold),
-    unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal),
-    items: const [
-      BottomNavigationBarItem(
-        icon: Icon(Icons.home_rounded),
-        label: 'Beranda',
-      ),
-      BottomNavigationBarItem(
-        icon: Icon(Icons.savings_rounded),
-        label: 'Tabungan',
-      ),
-      BottomNavigationBarItem(
-        icon: Icon(Icons.payments_rounded),
-        label: 'Taqsith',
-      ),
-      BottomNavigationBarItem(
-        icon: Icon(Icons.person_rounded),
-        label: 'Profil',
-      ),
-    ],
+  return Container(
+    margin: EdgeInsets.zero,
+    padding: EdgeInsets.zero,
+    child: BottomNavigationBar(
+      currentIndex: _selectedIndex,
+      onTap: _onItemTapped,
+      type: BottomNavigationBarType.fixed,
+      backgroundColor: Colors.green[700],
+      selectedItemColor: Colors.white,
+      unselectedItemColor: Colors.white.withOpacity(0.6),
+      selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold),
+      unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal),
+      items: const [
+        BottomNavigationBarItem(
+          icon: Icon(Icons.home_rounded),
+          label: 'Beranda',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.savings_rounded),
+          label: 'Tabungan',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.payments_rounded),
+          label: 'Taqsith',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.person_rounded),
+          label: 'Profil',
+        ),
+      ],
+    ),
   );
 }
 
-  Widget _buildWebAndLinuxBottomNav() {
-    return Container(
-      height: 70,
-      decoration: BoxDecoration(
-        color: Colors.green[700],
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(20),
-          topRight: Radius.circular(20),
+Widget _buildWebAndLinuxBottomNav() {
+  return Container(
+    height: 70,
+    decoration: BoxDecoration(
+      color: Colors.green[700],
+      borderRadius: const BorderRadius.only(
+        topLeft: Radius.circular(20),
+        topRight: Radius.circular(20),
+      ),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.2),
+          blurRadius: 10,
+          offset: const Offset(0, -2),
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.2),
-            blurRadius: 10,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _buildNavItem(
-            icon: Icons.home_rounded,
-            label: 'Beranda',
-            index: 0,
-            platform: 'web_linux',
-          ),
-          _buildNavItem(
-            icon: Icons.savings_rounded,
-            label: 'Tabungan',
-            index: 1,
-            platform: 'web_linux',
-          ),
-          _buildNavItem(
-            icon: Icons.payments_rounded,
-            label: 'Taqsith',
-            index: 2,
-            platform: 'web_linux',
-          ),
-          _buildNavItem(
-            icon: Icons.person_rounded,
-            label: 'Profil',
-            index: 3,
-            platform: 'web_linux',
-          ),
-        ],
-      ),
-    );
-  }
+      ],
+    ),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceAround, // ← KEMBALI KE INI
+      children: [
+        _buildNavItem(
+          icon: Icons.home_rounded,
+          label: 'Beranda',
+          index: 0,
+          platform: 'web_linux',
+        ),
+        _buildNavItem(
+          icon: Icons.savings_rounded,
+          label: 'Tabungan',
+          index: 1,
+          platform: 'web_linux',
+        ),
+        _buildNavItem(
+          icon: Icons.payments_rounded,
+          label: 'Taqsith',
+          index: 2,
+          platform: 'web_linux',
+        ),
+        _buildNavItem(
+          icon: Icons.person_rounded,
+          label: 'Profil',
+          index: 3,
+          platform: 'web_linux',
+        ),
+      ],
+    ),
+  );
+}
 
-  Widget _buildAndroidBottomNav() {
-    final padding = MediaQuery.of(context).padding;
-    final bottomPadding = padding.bottom;
+Widget _buildAndroidBottomNav() {
+  final padding = MediaQuery.of(context).padding;
+  final bottomPadding = padding.bottom;
 
-    return Container(
-      height: 68 + bottomPadding,
-      child: Column(
-        children: [
-          Container(
-            height: 68,
-            child: Material(
-              shape: BottomNavShape(),
+  return Container(
+    margin: EdgeInsets.zero,
+    padding: EdgeInsets.zero,
+    width: double.infinity, // ← PASTIKAN INI
+    height: 68 + bottomPadding,
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // BACKGROUND UTAMA YANG MENGISI LEBAR PENUH
+        Container(
+          width: double.infinity, // ← INI YANG PENTING
+          height: 68,
+          color: Colors.green[700], // ← BACKGROUND WARNA FULL DULU
+          child: ClipPath( // ← CLIP PATH UNTUK SHAPE
+            clipper: _BottomNavClipper(),
+            child: Container(
               color: Colors.green[700],
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
                   _buildNavItem(
                     icon: Icons.home_rounded,
@@ -725,65 +791,68 @@ Widget _buildUniversalBottomNav() {
               ),
             ),
           ),
-          Container(
-            height: bottomPadding,
-            color: Colors.green[700],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildIOSBottomNav() {
-    return SafeArea(
-      child: Container(
-        height: 80,
-        decoration: BoxDecoration(
+        ),
+        // SAFE AREA
+        Container(
+          height: bottomPadding,
+          width: double.infinity,
           color: Colors.green[700],
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(25),
-            topRight: Radius.circular(25),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 8,
-              offset: const Offset(0, -2),
-            ),
-          ],
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            _buildNavItem(
-              icon: Icons.home_rounded,
-              label: 'Beranda',
-              index: 0,
-              platform: 'ios',
-            ),
-            _buildNavItem(
-              icon: Icons.savings_rounded,
-              label: 'Tabungan',
-              index: 1,
-              platform: 'ios',
-            ),
-            _buildNavItem(
-              icon: Icons.payments_rounded,
-              label: 'Taqsith',
-              index: 2,
-              platform: 'ios',
-            ),
-            _buildNavItem(
-              icon: Icons.person_rounded,
-              label: 'Profil',
-              index: 3,
-              platform: 'ios',
-            ),
-          ],
-        ),
+      ],
+    ),
+  );
+}
+
+Widget _buildIOSBottomNav() {
+  return Container(
+    margin: EdgeInsets.zero, // Pastikan tidak ada margin
+    padding: EdgeInsets.zero, // Pastikan tidak ada padding
+    width: double.infinity, // Isi lebar penuh
+    height: 80,
+    decoration: BoxDecoration(
+      color: Colors.green[700],
+      borderRadius: const BorderRadius.only(
+        topLeft: Radius.circular(25),
+        topRight: Radius.circular(25),
       ),
-    );
-  }
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.1),
+          blurRadius: 8,
+          offset: const Offset(0, -2),
+        ),
+      ],
+    ),
+    child: Row(
+      children: [ // Hapus mainAxisAlignment, gunakan Expanded
+        _buildNavItem(
+          icon: Icons.home_rounded,
+          label: 'Beranda',
+          index: 0,
+          platform: 'ios',
+        ),
+        _buildNavItem(
+          icon: Icons.savings_rounded,
+          label: 'Tabungan',
+          index: 1,
+          platform: 'ios',
+        ),
+        _buildNavItem(
+          icon: Icons.payments_rounded,
+          label: 'Taqsith',
+          index: 2,
+          platform: 'ios',
+        ),
+        _buildNavItem(
+          icon: Icons.person_rounded,
+          label: 'Profil',
+          index: 3,
+          platform: 'ios',
+        ),
+      ],
+    ),
+  );
+}
 
   Widget _buildDefaultBottomNav() {
     return BottomNavigationBar(
@@ -816,94 +885,94 @@ Widget _buildUniversalBottomNav() {
     );
   }
 
-  Widget _buildNavItem({
-    required IconData icon,
-    required String label,
-    required int index,
-    required String platform,
-  }) {
-    final isSelected = _selectedIndex == index;
-    
-    double iconSize;
-    double fontSize;
-    double verticalPadding;
-    
-    switch (platform) {
-      case 'ios':
-        iconSize = 24;
-        fontSize = 11;
-        verticalPadding = 8;
-        break;
-      case 'web_linux':
-        iconSize = 22;
-        fontSize = 10;
-        verticalPadding = 6;
-        break;
-      case 'android':
-      default:
-        iconSize = 20;
-        fontSize = 9;
-        verticalPadding = 6;
-        break;
-    }
-    
-    return Expanded(
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () => _onItemTapped(index),
-          borderRadius: BorderRadius.circular(0),
-          splashColor: Colors.white.withOpacity(0.3),
-          highlightColor: Colors.white.withOpacity(0.2),
-          child: Container(
-            padding: EdgeInsets.symmetric(vertical: verticalPadding),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              mainAxisSize: MainAxisSize.min,
-              children: [
+Widget _buildNavItem({
+  required IconData icon,
+  required String label,
+  required int index,
+  required String platform,
+}) {
+  final isSelected = _selectedIndex == index;
+  
+  double iconSize;
+  double fontSize;
+  double verticalPadding;
+  
+  switch (platform) {
+    case 'ios':
+      iconSize = 24;
+      fontSize = 11;
+      verticalPadding = 8;
+      break;
+    case 'web_linux': // ← PASTIKAN INI ADA
+      iconSize = 22;
+      fontSize = 10;
+      verticalPadding = 6;
+      break;
+    case 'android':
+    default:
+      iconSize = 20;
+      fontSize = 9;
+      verticalPadding = 6;
+      break;
+  }
+  
+  return Expanded( // ← PASTIKAN PAKAI EXPANDED
+    child: Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _onItemTapped(index),
+        borderRadius: BorderRadius.circular(0),
+        splashColor: Colors.white.withOpacity(0.3),
+        highlightColor: Colors.white.withOpacity(0.2),
+        child: Container(
+          padding: EdgeInsets.symmetric(vertical: verticalPadding),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: isSelected ? Colors.white.withOpacity(0.3) : Colors.transparent,
+                ),
+                child: Icon(
+                  icon,
+                  size: iconSize,
+                  color: isSelected ? Colors.white : Colors.white.withOpacity(0.7),
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: fontSize,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  color: isSelected ? Colors.white : Colors.white.withOpacity(0.8),
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+              ),
+              if (isSelected)
                 Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
+                  margin: const EdgeInsets.only(top: 1),
+                  width: 3,
+                  height: 3,
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
                     shape: BoxShape.circle,
-                    color: isSelected ? Colors.white.withOpacity(0.3) : Colors.transparent,
                   ),
-                  child: Icon(
-                    icon,
-                    size: iconSize,
-                    color: isSelected ? Colors.white : Colors.white.withOpacity(0.7),
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: fontSize,
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                    color: isSelected ? Colors.white : Colors.white.withOpacity(0.8),
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                ),
-                if (isSelected)
-                  Container(
-                    margin: const EdgeInsets.only(top: 1),
-                    width: 3,
-                    height: 3,
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                    ),
-                  )
-                else
-                  const SizedBox(height: 3),
-              ],
-            ),
+                )
+              else
+                const SizedBox(height: 3),
+            ],
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   // ✅ PUBLIC METHODS UNTUK EXTERNAL ACCESS
   void refreshUserData() {

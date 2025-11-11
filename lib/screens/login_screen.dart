@@ -323,25 +323,13 @@ Map<String, dynamic> _getDokumenStatus(Map<String, dynamic> user) {
         title: const Text('Lupa Password?'),
         content: const Text(
           'Silakan hubungi admin koperasi untuk reset password. '
-          'Fitur reset password otomatis akan segera tersedia.'
+          'KSMI Tulungagung : +62 811-3667-666'
+          'KSMI Kediri : +62 811-3666-515'
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('Tutup'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              // TODO: Implement reset password flow
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Fitur reset password akan segera tersedia'),
-                  duration: Duration(seconds: 3),
-                ),
-              );
-            },
-            child: const Text('Hubungi Admin'),
           ),
         ],
       ),
