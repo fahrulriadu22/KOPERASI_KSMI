@@ -3,6 +3,7 @@ import '../services/api_service.dart';
 import 'dashboard_main.dart';
 import 'register_screen.dart';
 import 'upload_dokumen_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginScreen extends StatefulWidget {
   final Function(Map<String, dynamic>)? onLoginSuccess;
@@ -156,9 +157,12 @@ class _LoginScreenState extends State<LoginScreen> {
 
 void _handleSuccessfulLogin(Map<String, dynamic> user) {
   try {
+    final statusUser = user['status_user']?.toString() ?? '0';
     // ✅ DEBUG: Tampilkan status user
     print('🎉 LOGIN SUCCESS - User Status: ${user['status_user']}');
     print('🎉 LOGIN SUCCESS - User ID: ${user['user_id']}');
+
+    _saveAuthStatus(statusUser);
     
     // ✅ PERBAIKAN: CEK APAKAH ADA CALLBACK onLoginSuccess
     if (widget.onLoginSuccess != null) {
@@ -174,6 +178,18 @@ void _handleSuccessfulLogin(Map<String, dynamic> user) {
     _navigateToDashboard(user);
   }
 }
+
+// ✅ METHOD BARU: SIMPAN STATUS AUTH KE SHARED PREFERENCES
+Future<void> _saveAuthStatus(String statusUser) async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('auth_status_user', statusUser);
+    print('💾 Auth status saved to SharedPreferences: $statusUser');
+  } catch (e) {
+    print('❌ Error saving auth status: $e');
+  }
+}
+
 
 // ✅ FIX: CEK STATUS USER DAN NAVIGASI YANG BENAR
 void _checkDokumenStatusAndNavigate(Map<String, dynamic> user) {

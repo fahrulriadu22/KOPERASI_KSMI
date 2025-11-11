@@ -41,6 +41,14 @@ class DashboardMain extends StatefulWidget {
 
   const DashboardMain({Key? key, required this.user}) : super(key: key);
 
+  // ✅ BUAT PUBLIC METHOD UNTUK NAVIGASI
+  static void navigateToTab(BuildContext context, int index) {
+    final state = context.findAncestorStateOfType<_DashboardMainState>();
+    if (state != null && state.mounted) {
+      state._navigateToTab(index);
+    }
+  }
+
   @override
   State<DashboardMain> createState() => _DashboardMainState();
 }
@@ -561,24 +569,13 @@ Future<void> _loadUnreadNotifications() async {
   }
 
 Widget _buildMainScreen() {
-  final List<Widget> pages = [
-    RefreshIndicator(
-      onRefresh: _refreshUserData,
-      color: Colors.green,
-      backgroundColor: Colors.white,
-      child: DashboardScreen(
-        user: userData,
-        onRefresh: _refreshUserData,
-      ),
-    ),
-    RiwayatTabunganScreen(user: userData),
-    RiwayatAngsuranScreen(user: userData),
-    ProfileScreen(
-      user: userData,
-      onProfileUpdated: _refreshUserData,
-      onLogout: _performLogout,
-    ),
-  ];
+// Di _DashboardMainState
+final List<Widget> pages = [
+  DashboardScreen(user: userData, onRefresh: _refreshUserData),     // Index 0
+  RiwayatTabunganScreen(user: userData),                           // Index 1  
+  RiwayatAngsuranScreen(user: userData),                           // Index 2
+  ProfileScreen(user: userData, onProfileUpdated: _refreshUserData, onLogout: _performLogout), // Index 3
+];
 
   return Scaffold(
     backgroundColor: Colors.white,
@@ -586,8 +583,21 @@ Widget _buildMainScreen() {
       index: _selectedIndex,
       children: pages,
     ),
-    bottomNavigationBar: _buildUniversalBottomNav(),
+    bottomNavigationBar: _buildPlatformSpecificBottomNav(), // ← PERBAIKAN DI SINI
   );
+}
+
+// ✅ ADD THIS METHOD TO FIX THE ISSUE
+Widget _buildPlatformSpecificBottomNav() {
+  if (_isWeb || _isLinux) {
+    return _buildWebAndLinuxBottomNav();
+  } else if (_isAndroid) {
+    return _buildAndroidBottomNav();
+  } else if (_isIOS) {
+    return _buildIOSBottomNav();
+  } else {
+    return _buildDefaultBottomNav();
+  }
 }
 
 Widget _buildUniversalBottomNav() {
@@ -900,7 +910,8 @@ Widget _buildUniversalBottomNav() {
     _refreshUserData();
   }
 
-  void navigateToTab(int index) {
+  // ✅ METHOD INTERNAL UNTUK NAVIGASI
+  void _navigateToTab(int index) {
     if (index >= 0 && index < 4 && mounted) {
       setState(() {
         _selectedIndex = index;

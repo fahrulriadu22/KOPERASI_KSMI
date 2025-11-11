@@ -838,14 +838,10 @@ Widget build(BuildContext context) {
     appBar: PreferredSize(
       preferredSize: const Size.fromHeight(70.0),
       child: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
         title: const Padding(
           padding: EdgeInsets.only(bottom: 10.0),
           child: Text(
-            'Riwayat Pembiayaan',
+            'Riwayat Angsuran',
             style: TextStyle(
               fontWeight: FontWeight.bold,
               fontSize: 18,
@@ -886,7 +882,7 @@ Widget build(BuildContext context) {
             child: Column(
               children: [
                 const Text(
-                  'Total Semua Pembiayaan',
+                  'Total Semua Angsuran',
                   style: TextStyle(fontSize: 16, color: Colors.green, fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 8),
@@ -1078,7 +1074,7 @@ Widget build(BuildContext context) {
                                           crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
                                             Text(
-                                              'Ke Angsuran',
+                                              'ke-$ke',
                                               style: const TextStyle(
                                                 fontWeight: FontWeight.bold,
                                                 fontSize: 16,

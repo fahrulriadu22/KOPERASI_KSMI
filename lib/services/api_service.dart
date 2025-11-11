@@ -3980,19 +3980,12 @@ Future<Map<String, dynamic>> register(Map<String, dynamic> userData) async {
     }
   }
 
-  // ✅ GET ALL INBOX
+// ✅ PERBAIKAN: GET ALL INBOX DENGAN HANDLING BERBAGAI FORMAT
 Future<Map<String, dynamic>> getAllInbox() async {
   try {
     final headers = await getProtectedHeaders();
     
-    print('📥 DEBUG: Headers for getAllInbox');
-    headers.forEach((key, value) {
-      if (key.contains('key') || key.contains('token')) {
-        print('   - $key: ***${value.substring(value.length - 4)}');
-      } else {
-        print('   - $key: $value');
-      }
-    });
+    print('📥 Getting all inbox data...');
 
     final response = await http.post(
       Uri.parse('$baseUrl/transaction/getAllinbox'),
@@ -4000,44 +3993,158 @@ Future<Map<String, dynamic>> getAllInbox() async {
       body: '',
     ).timeout(const Duration(seconds: 30));
 
-    print('📡 DEBUG: Inbox Response Status: ${response.statusCode}');
-    print('📡 DEBUG: Inbox Response Body: ${response.body}');
-    print('📡 DEBUG: Response Headers: ${response.headers}');
+    print('📡 Inbox Response Status: ${response.statusCode}');
 
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
-      print('📡 DEBUG: Parsed JSON: $data');
       
       if (data['status'] == true) {
-        print('✅ DEBUG: API status true');
-        print('✅ DEBUG: Data keys: ${data['data']?.keys}');
-        print('✅ DEBUG: Unread count: ${data['data']?['belum_terbaca']}');
+        final responseData = data['data'] ?? {};
+        
+        print('✅ Inbox data loaded successfully');
+        print('📊 Inbox data structure: ${responseData.keys}');
+        
+        // ✅ PROCESS DATA UNTUK FORMAT YANG BERBEDA-BEDA
+        List<Map<String, dynamic>> inboxList = [];
+        
+        // Format 1: Data langsung berupa list
+        if (responseData is List) {
+          inboxList = List<Map<String, dynamic>>.from(responseData);
+        }
+        // Format 2: Data dalam key 'inbox'
+        else if (responseData['inbox'] is List) {
+          inboxList = List<Map<String, dynamic>>.from(responseData['inbox']);
+        }
+        // Format 3: Data dalam key 'data'
+        else if (responseData['data'] is List) {
+          inboxList = List<Map<String, dynamic>>.from(responseData['data']);
+        }
+        // Format 4: Data dalam key 'messages'
+        else if (responseData['messages'] is List) {
+          inboxList = List<Map<String, dynamic>>.from(responseData['messages']);
+        }
+        
+        // ✅ TAMBAHKAN ID JIKA TIDAK ADA
+        for (int i = 0; i < inboxList.length; i++) {
+          if (!inboxList[i].containsKey('id') && !inboxList[i].containsKey('id_inbox')) {
+            inboxList[i]['id'] = '${DateTime.now().millisecondsSinceEpoch}_$i';
+          }
+        }
         
         return {
           'success': true,
-          'data': data['data'] ?? {},
+          'data': responseData,
+          'inbox_list': inboxList,
+          'unread_count': responseData['belum_terbaca'] ?? 0,
           'message': data['message'] ?? 'Success get inbox'
         };
       } else {
-        print('❌ DEBUG: API status false: ${data['message']}');
+        print('❌ Inbox API status false: ${data['message']}');
         return {
           'success': false,
-          'message': data['message'] ?? 'Gagal mengambil data inbox'
+          'message': data['message'] ?? 'Gagal mengambil data inbox',
+          'inbox_list': [],
+          'unread_count': 0
         };
       }
     } else {
-      print('❌ DEBUG: HTTP error: ${response.statusCode}');
+      print('❌ Inbox HTTP error: ${response.statusCode}');
       return {
         'success': false,
-        'message': 'Gagal mengambil data inbox: ${response.statusCode}'
+        'message': 'Gagal mengambil data inbox: ${response.statusCode}',
+        'inbox_list': [],
+        'unread_count': 0
       };
     }
   } catch (e) {
-    print('❌ DEBUG: Inbox API Exception: $e');
+    print('❌ Inbox API Exception: $e');
     return {
       'success': false,
-      'message': 'Error: $e'
+      'message': 'Error: $e',
+      'inbox_list': [],
+      'unread_count': 0
     };
+  }
+}
+
+// ✅ METHOD UNTUK PROCESS INBOX DATA UNTUK DASHBOARD
+// ✅ FIX: METHOD UNTUK PROCESS INBOX DATA UNTUK DASHBOARD - SESUAI FORMAT getAllInbox
+List<Map<String, dynamic>> processInboxDataForDashboard(Map<String, dynamic> inboxData) {
+  try {
+    List<Map<String, dynamic>> result = [];
+    
+    print('🔧 Processing inbox data for dashboard...');
+    print('📦 Inbox data keys: ${inboxData.keys}');
+    
+    // ✅ SESUAI DENGAN FORMAT getAllInbox YANG SUDAH BEKERJA
+    // Data inbox biasanya ada di key 'inbox' dalam Map
+    if (inboxData['inbox'] is List) {
+      final inboxList = inboxData['inbox'] as List;
+      result = inboxList.whereType<Map<String, dynamic>>().toList();
+      print('✅ Using inbox list: ${result.length} items');
+    } 
+    // Atau mungkin di key 'data' sebagai List
+    else if (inboxData['data'] is List) {
+      final dataList = inboxData['data'] as List;
+      result = dataList.whereType<Map<String, dynamic>>().toList();
+      print('✅ Using data list: ${result.length} items');
+    }
+    // Jika tidak ada list yang jelas, coba ekstrak dari values
+    else {
+      print('⚠️ No direct list found, extracting from map values...');
+      for (var value in inboxData.values) {
+        if (value is List) {
+          final listItems = value.whereType<Map<String, dynamic>>().toList();
+          if (listItems.isNotEmpty) {
+            result = listItems;
+            print('✅ Found list in values: ${result.length} items');
+            break;
+          }
+        }
+      }
+    }
+    
+    // ✅ TAMBAHKAN ID JIKA TIDAK ADA
+    for (int i = 0; i < result.length; i++) {
+      if (!result[i].containsKey('id') && !result[i].containsKey('id_inbox')) {
+        result[i]['id'] = 'temp_${DateTime.now().millisecondsSinceEpoch}_$i';
+      }
+    }
+    
+    // ✅ SORT BY TIME (TERBARU DULUAN)
+    result.sort((a, b) {
+      final timeA = a['created_at'] ?? a['timestamp'] ?? a['time'] ?? '';
+      final timeB = b['created_at'] ?? b['timestamp'] ?? b['time'] ?? '';
+      return timeB.compareTo(timeA);
+    });
+    
+    // ✅ LIMIT UNTUK DASHBOARD (10 ITEM SAJA)
+    if (result.length > 10) {
+      result = result.sublist(0, 10);
+    }
+    
+    print('🎉 Processed ${result.length} inbox items for dashboard');
+    return result;
+    
+  } catch (e) {
+    print('❌ Error processing inbox data: $e');
+    return [];
+  }
+}
+
+// ✅ METHOD UNTUK GET REAL INBOX DATA (UNTUK FIREBASE SERVICE)
+Future<List<Map<String, dynamic>>> getRealInboxData() async {
+  try {
+    final inboxResult = await getAllInbox();
+    
+    if (inboxResult['success'] == true) {
+      return processInboxDataForDashboard(inboxResult['data'] ?? {});
+    }
+    
+    return [];
+  } catch (e) {
+    print('❌ Error getting real inbox data: $e');
+    return [];
   }
 }
 
@@ -4072,98 +4179,168 @@ Future<Map<String, dynamic>> getAllInbox() async {
     }
   }
 
-  // ✅ GET INBOX READ ALL
-  Future<Map<String, dynamic>> getInboxReadAll() async {
-    try {
-      final headers = await getProtectedHeaders();
-      
-      final response = await http.post(
-        Uri.parse('$baseUrl/transaction/getInboxReadAll'),
-        headers: headers,
-        body: '',
-      ).timeout(const Duration(seconds: 30));
+// ✅ METHOD UNTUK MARK ALL NOTIFICATIONS AS READ
+Future<Map<String, dynamic>> markAllNotificationsAsRead() async {
+  try {
+    print('📖 Marking all notifications as read...');
+    
+    final headers = await getProtectedHeaders();
+    
+    final response = await http.post(
+      Uri.parse('$baseUrl/transaction/getInboxReadAll'),
+      headers: headers,
+      body: '',
+    ).timeout(const Duration(seconds: 30));
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
+    print('📡 Mark All as Read Response Status: ${response.statusCode}');
+    print('📡 Mark All as Read Response Body: ${response.body}');
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      
+      return {
+        'success': data['status'] == true,
+        'message': data['message'] ?? 'Semua notifikasi ditandai sebagai dibaca',
+        'data': data
+      };
+    } else {
+      return {
+        'success': false,
+        'message': 'Gagal menandai semua notifikasi sebagai dibaca: ${response.statusCode}'
+      };
+    }
+  } catch (e) {
+    print('❌ Mark all as read error: $e');
+    return {
+      'success': false,
+      'message': 'Error menandai semua notifikasi sebagai dibaca: $e'
+    };
+  }
+}
+
+// ✅ METHOD UNTUK GET NOTIFICATION DETAIL
+Future<Map<String, dynamic>> getNotificationDetail(String notificationId) async {
+  try {
+    print('🔍 Getting notification detail: $notificationId');
+    
+    final headers = await getProtectedHeaders();
+    
+    final response = await http.post(
+      Uri.parse('$baseUrl/transaction/getInboxDetail'),
+      headers: headers,
+      body: 'id_inbox=$notificationId',
+    ).timeout(const Duration(seconds: 30));
+
+    print('📡 Notification Detail Response Status: ${response.statusCode}');
+    print('📡 Notification Detail Response Body: ${response.body}');
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      
+      if (data['status'] == true) {
         return {
-          'success': data['status'] == true,
-          'message': data['message'] ?? 'Semua inbox ditandai terbaca'
+          'success': true,
+          'data': data['data'] ?? data,
+          'message': data['message'] ?? 'Success get notification detail'
         };
       } else {
         return {
           'success': false,
-          'message': 'Gagal menandai semua inbox'
+          'message': data['message'] ?? 'Gagal mengambil detail notifikasi'
         };
       }
-    } catch (e) {
+    } else {
       return {
         'success': false,
-        'message': 'Error: $e'
+        'message': 'Gagal mengambil detail notifikasi: ${response.statusCode}'
       };
     }
+  } catch (e) {
+    print('❌ Get notification detail error: $e');
+    return {
+      'success': false,
+      'message': 'Error mengambil detail notifikasi: $e'
+    };
   }
+}
 
-  // ✅ GET INBOX DELETED
-  Future<Map<String, dynamic>> getInboxDeleted(String idInbox) async {
-    try {
-      final headers = await getProtectedHeaders();
+// ✅ METHOD UNTUK HAPUS NOTIFIKASI TUNGGAL
+Future<Map<String, dynamic>> deleteNotification(String notificationId) async {
+  try {
+    print('🗑️ Deleting notification: $notificationId');
+    
+    final headers = await getProtectedHeaders();
+    
+    final response = await http.post(
+      Uri.parse('$baseUrl/transaction/getInboxDeleted'),
+      headers: headers,
+      body: 'id_inbox=$notificationId',
+    ).timeout(const Duration(seconds: 30));
+
+    print('📡 Delete Notification Response Status: ${response.statusCode}');
+    print('📡 Delete Notification Response Body: ${response.body}');
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
       
-      final response = await http.post(
-        Uri.parse('$baseUrl/transaction/getInboxDeleted'),
-        headers: headers,
-        body: 'id_inbox=$idInbox',
-      ).timeout(const Duration(seconds: 30));
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        return {
-          'success': data['status'] == true,
-          'message': data['message'] ?? 'Inbox berhasil dihapus'
-        };
-      } else {
-        return {
-          'success': false,
-          'message': 'Gagal menghapus inbox'
-        };
-      }
-    } catch (e) {
+      return {
+        'success': data['status'] == true,
+        'message': data['message'] ?? 'Notifikasi berhasil dihapus',
+        'data': data
+      };
+    } else {
       return {
         'success': false,
-        'message': 'Error: $e'
+        'message': 'Gagal menghapus notifikasi: ${response.statusCode}'
       };
     }
+  } catch (e) {
+    print('❌ Delete notification error: $e');
+    return {
+      'success': false,
+      'message': 'Error menghapus notifikasi: $e'
+    };
   }
+}
 
-  // ✅ GET INBOX DELETED ALL
-  Future<Map<String, dynamic>> getInboxDeletedAll() async {
-    try {
-      final headers = await getProtectedHeaders();
+// ✅ METHOD UNTUK HAPUS SEMUA NOTIFIKASI
+Future<Map<String, dynamic>> deleteAllNotifications() async {
+  try {
+    print('🗑️ Deleting all notifications...');
+    
+    final headers = await getProtectedHeaders();
+    
+    final response = await http.post(
+      Uri.parse('$baseUrl/transaction/getInboxDeletedAll'),
+      headers: headers,
+      body: '',
+    ).timeout(const Duration(seconds: 30));
+
+    print('📡 Delete All Notifications Response Status: ${response.statusCode}');
+    print('📡 Delete All Notifications Response Body: ${response.body}');
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
       
-      final response = await http.post(
-        Uri.parse('$baseUrl/transaction/getInboxDeletedAll'),
-        headers: headers,
-        body: '',
-      ).timeout(const Duration(seconds: 30));
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        return {
-          'success': data['status'] == true,
-          'message': data['message'] ?? 'Semua inbox berhasil dihapus'
-        };
-      } else {
-        return {
-          'success': false,
-          'message': 'Gagal menghapus semua inbox'
-        };
-      }
-    } catch (e) {
+      return {
+        'success': data['status'] == true,
+        'message': data['message'] ?? 'Semua notifikasi berhasil dihapus',
+        'data': data
+      };
+    } else {
       return {
         'success': false,
-        'message': 'Error: $e'
+        'message': 'Gagal menghapus semua notifikasi: ${response.statusCode}'
       };
     }
+  } catch (e) {
+    print('❌ Delete all notifications error: $e');
+    return {
+      'success': false,
+      'message': 'Error menghapus semua notifikasi: $e'
+    };
   }
+}
 
   // ✅ CHANGE PASSWORD
 // ✅ FIX: CHANGE PASSWORD
@@ -4284,6 +4461,8 @@ Future<Map<String, dynamic>> updateDeviceToken(String token) async {
 // ✅ MARK NOTIFICATION AS READ
 Future<Map<String, dynamic>> markNotificationAsRead(String notificationId) async {
   try {
+    print('📖 Marking notification as read: $notificationId');
+    
     final headers = await getProtectedHeaders();
     
     final response = await http.post(
@@ -4292,50 +4471,78 @@ Future<Map<String, dynamic>> markNotificationAsRead(String notificationId) async
       body: 'id_inbox=$notificationId',
     ).timeout(const Duration(seconds: 30));
 
+    print('📡 Mark as Read Response Status: ${response.statusCode}');
+    print('📡 Mark as Read Response Body: ${response.body}');
+
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
+      
       return {
         'success': data['status'] == true,
-        'message': data['message'] ?? 'Notification marked as read'
+        'message': data['message'] ?? 'Notifikasi ditandai sebagai dibaca',
+        'data': data
       };
     } else {
       return {
         'success': false,
-        'message': 'Failed to mark notification as read'
+        'message': 'Gagal menandai notifikasi sebagai dibaca: ${response.statusCode}'
       };
     }
   } catch (e) {
+    print('❌ Mark as read error: $e');
     return {
       'success': false,
-      'message': 'Error marking notification as read: $e'
+      'message': 'Error menandai notifikasi sebagai dibaca: $e'
     };
   }
 }
 
-// ✅ GET UNREAD NOTIFICATION COUNT
+// ✅ METHOD UNTUK GET UNREAD COUNT YANG LEBIH AKURAT
 Future<int> getUnreadNotificationCount() async {
   try {
-    final result = await getAllInbox();
-    if (result['success'] == true) {
-      final data = result['data'] ?? {};
-      List<dynamic> inboxList = [];
+    print('📊 Getting unread notification count...');
+    
+    final inboxResult = await getAllInbox();
+    
+    if (inboxResult['success'] == true) {
+      final data = inboxResult['data'] ?? {};
       
-      if (data['inbox'] is List) {
-        inboxList = data['inbox'];
-      } else if (data is List) {
-        inboxList = data;
+      // ✅ CEK BERBAGAI FORMAT RESPONSE YANG MUNGKIN
+      int unreadCount = 0;
+      
+      // Format 1: Data langsung berisi list inbox
+      if (data is List) {
+        unreadCount = data.where((item) {
+          if (item is Map) {
+            final readStatus = item['read_status'] ?? item['is_read'] ?? item['status_baca'] ?? '0';
+            return readStatus == '0' || readStatus == 0 || readStatus == false;
+          }
+          return false;
+        }).length;
+      }
+      // Format 2: Data dalam key 'inbox'
+      else if (data['inbox'] is List) {
+        final inboxList = data['inbox'] as List;
+        unreadCount = inboxList.where((item) {
+          if (item is Map) {
+            final readStatus = item['read_status'] ?? item['is_read'] ?? item['status_baca'] ?? '0';
+            return readStatus == '0' || readStatus == 0 || readStatus == false;
+          }
+          return false;
+        }).length;
+      }
+      // Format 3: Data dalam key 'belum_terbaca' (langsung ada count-nya)
+      else if (data['belum_terbaca'] != null) {
+        unreadCount = _safeConvertToInt(data['belum_terbaca']);
       }
       
-      return inboxList.where((item) {
-        if (item is Map) {
-          final readStatus = item['read_status'] ?? item['is_read'] ?? item['status_baca'] ?? '0';
-          return readStatus == '0' || readStatus == 0 || readStatus == false;
-        }
-        return false;
-      }).length;
+      print('✅ Unread notification count: $unreadCount');
+      return unreadCount;
     }
+    
     return 0;
   } catch (e) {
+    print('❌ Get unread count error: $e');
     return 0;
   }
 }

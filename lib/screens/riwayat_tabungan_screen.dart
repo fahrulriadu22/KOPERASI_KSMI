@@ -2360,10 +2360,6 @@ Widget build(BuildContext context) {
     appBar: PreferredSize(
       preferredSize: const Size.fromHeight(70.0),
       child: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
         title: const Padding(
           padding: EdgeInsets.only(bottom: 10.0),
           child: Text(

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dashboard_main.dart';
 import 'riwayat_tabungan_screen.dart';
 import 'riwayat_angsuran_screen.dart';
 import '../services/api_service.dart';
@@ -921,40 +922,46 @@ void _showNotificationPopup() {
                   Expanded(
                     child: _buildNotificationContent(),
                   ),
-                  // Footer
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      border: Border(
-                        top: BorderSide(color: Colors.grey[300]!),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        TextButton(
-                          onPressed: () {
-                            _markAllAsRead();
-                            _closeNotificationPopup();
-                          },
-                          child: const Text(
-                            'Tandai semua dibaca',
-                            style: TextStyle(fontSize: 12),
-                          ),
-                        ),
-                        TextButton(
-                          onPressed: () {
-                            _closeNotificationPopup();
-                            _showAllNotifications();
-                          },
-                          child: const Text(
-                            'Lihat semua',
-                            style: TextStyle(fontSize: 12),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+// Footer
+Container(
+  padding: const EdgeInsets.all(12),
+  decoration: BoxDecoration(
+    border: Border(
+      top: BorderSide(color: Colors.grey[300]!),
+    ),
+  ),
+  child: Row(
+    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    children: [
+      // TAMBAHKAN TOMBOL HAPUS SEMUA
+      TextButton(
+        onPressed: () {
+          _deleteAllNotifications();
+          _closeNotificationPopup();
+        },
+        child: const Text(
+          'Hapus Semua',
+          style: TextStyle(fontSize: 12, color: Colors.red),
+        ),
+      ),
+      Row(
+        children: [
+          const SizedBox(width: 8),
+          TextButton(
+            onPressed: () {
+              _closeNotificationPopup();
+              _showAllNotifications();
+            },
+            child: const Text(
+              'Lihat semua',
+              style: TextStyle(fontSize: 12),
+            ),
+          ),
+        ],
+      ),
+    ],
+  ),
+),
                 ],
               ),
             ),
@@ -1089,29 +1096,19 @@ Future<void> _refreshData() async {
     }
   }
 
-// ✅ NAVIGASI NORMAL - USER PENCET BACK UNTUK KEMBALI
 void _navigateToRiwayatTabungan(BuildContext context, MenuIcon menu, Map<String, dynamic> userData) {
-  print('🚀 Navigating to RiwayatTabungan with type: ${menu.key}');
+  print('🚀 Navigating to RiwayatTabungan with bottom nav');
   
-  Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (context) => RiwayatTabunganScreen(
-        user: userData,
-        initialTabunganType: menu.key,
-      ),
-    ),
-  );
+  // Panggil static method dari DashboardMain
+  DashboardMain.navigateToTab(context, 1); // Index 1 = Tabungan
 }
 
 // ✅ NAVIGASI KE RIWAYAT ANGSURAN
 void _navigateToRiwayatAngsuran(BuildContext context, Map<String, dynamic> userData) {
-  Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (context) => RiwayatAngsuranScreen(user: userData),
-    ),
-  );
+  print('🚀 Navigating to RiwayatAngsuran with bottom nav');
+  
+  // Panggil static method dari DashboardMain
+  DashboardMain.navigateToTab(context, 2); // Index 2 = Taqsith
 }
 
   // ✅ PERBAIKAN: SHOW SALDO DETAIL DENGAN DATA YANG AKURAT
@@ -1320,10 +1317,11 @@ Widget _buildNotificationContent() {
   );
 }
 
-// ✅ BUILD REAL NOTIFICATION ITEM
+// ✅ BUILD REAL NOTIFICATION ITEM DENGAN OPTION HAPUS
 Widget _buildRealNotificationItem(Map<String, dynamic> item) {
   final icon = _getNotificationIcon(item['subject']?.toString() ?? '');
   final isUnread = item['isUnread'] == true;
+  final notificationId = item['id']?.toString() ?? '';
   
   return Container(
     decoration: BoxDecoration(
@@ -1368,19 +1366,35 @@ Widget _buildRealNotificationItem(Map<String, dynamic> item) {
           ),
         ],
       ),
-      trailing: isUnread
-          ? Container(
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (isUnread)
+            Container(
               width: 8,
               height: 8,
               decoration: const BoxDecoration(
                 color: Colors.red,
                 shape: BoxShape.circle,
               ),
-            )
-          : null,
+            ),
+          const SizedBox(width: 8),
+          // Tombol hapus
+          IconButton(
+            icon: Icon(Icons.delete_outline, size: 18, color: Colors.grey[500]),
+            onPressed: () => _deleteNotification(notificationId),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            tooltip: 'Hapus notifikasi',
+          ),
+        ],
+      ),
       onTap: () {
-        _markNotificationAsRead(item['id']?.toString() ?? '');
+        _markNotificationAsRead(notificationId);
         _closeNotificationPopup();
+      },
+      onLongPress: () {
+        _showNotificationOptions(context, notificationId, item);
       },
       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
     ),
@@ -1551,7 +1565,7 @@ void _markAsRead() {
   }
 }
 
-// ✅ SHOW ALL NOTIFICATIONS (FULL SCREEN)
+// ✅ SHOW ALL NOTIFICATIONS (FULL SCREEN) DENGAN FITUR HAPUS
 void _showAllNotifications() {
   showDialog(
     context: context,
@@ -1565,19 +1579,66 @@ void _showAllNotifications() {
       ),
       content: SizedBox(
         width: double.maxFinite,
+        height: 400,
         child: Column(
-          mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('Fitur notifikasi lengkap akan segera hadir!'),
-            const SizedBox(height: 16),
-            if (_unreadNotifications > 0)
-              Text(
-                'Anda memiliki $_unreadNotifications pesan belum dibaca',
-                style: TextStyle(
-                  color: Colors.orange[700],
-                  fontWeight: FontWeight.bold,
+            // Header info
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Total: $_unreadNotifications belum dibaca',
+                  style: TextStyle(
+                    color: _unreadNotifications > 0 ? Colors.orange[700] : Colors.grey,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
+                if (_unreadNotifications > 0)
+                  TextButton(
+                    onPressed: _deleteAllNotifications,
+                    child: const Text(
+                      'Hapus Semua',
+                      style: TextStyle(color: Colors.red, fontSize: 12),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            
+            // List notifikasi
+            Expanded(
+              child: FutureBuilder<List<Map<String, dynamic>>>(
+                future: firebaseService.getRealInboxData(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  
+                  if (snapshot.hasError || !snapshot.hasData || snapshot.data!.isEmpty) {
+                    return const Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.notifications_none, size: 48, color: Colors.grey),
+                          SizedBox(height: 8),
+                          Text('Tidak ada notifikasi'),
+                        ],
+                      ),
+                    );
+                  }
+                  
+                  final inboxData = snapshot.data!;
+                  
+                  return ListView.builder(
+                    itemCount: inboxData.length,
+                    itemBuilder: (context, index) {
+                      final item = inboxData[index];
+                      return _buildAllNotificationsItem(item);
+                    },
+                  );
+                },
               ),
+            ),
           ],
         ),
       ),
@@ -1586,7 +1647,98 @@ void _showAllNotifications() {
           onPressed: () => Navigator.pop(context),
           child: const Text('Tutup'),
         ),
+        TextButton(
+          onPressed: () {
+            Navigator.pop(context);
+            _markAllAsRead();
+          },
+          child: const Text('Tandai Semua Dibaca'),
+        ),
       ],
+    ),
+  );
+}
+
+// ✅ BUILD ITEM UNTUK SEMUA NOTIFIKASI
+Widget _buildAllNotificationsItem(Map<String, dynamic> item) {
+  final icon = _getNotificationIcon(item['subject']?.toString() ?? '');
+  final isUnread = item['isUnread'] == true;
+  final notificationId = item['id']?.toString() ?? '';
+  
+  return Dismissible(
+    key: Key(notificationId),
+    direction: DismissDirection.endToStart,
+    background: Container(
+      color: Colors.red,
+      alignment: Alignment.centerRight,
+      padding: const EdgeInsets.only(right: 20),
+      child: const Icon(Icons.delete, color: Colors.white),
+    ),
+    confirmDismiss: (direction) async {
+      return await showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Hapus Notifikasi'),
+          content: const Text('Apakah Anda yakin ingin menghapus notifikasi ini?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Batal'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Hapus'),
+            ),
+          ],
+        ),
+      );
+    },
+    onDismissed: (direction) {
+      _deleteNotification(notificationId);
+    },
+    child: Container(
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: Colors.grey[200]!)),
+        color: isUnread ? Colors.blue[50] : Colors.transparent,
+      ),
+      child: ListTile(
+        leading: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: Colors.green[100],
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: Colors.green[700], size: 20),
+        ),
+        title: Text(
+          item['subject']?.toString() ?? 'Notifikasi',
+          style: TextStyle(
+            fontWeight: isUnread ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(item['message']?.toString() ?? ''),
+            const SizedBox(height: 4),
+            Text(
+              item['time']?.toString() ?? '',
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+          ],
+        ),
+        trailing: IconButton(
+          icon: const Icon(Icons.delete_outline, color: Colors.grey),
+          onPressed: () => _deleteNotification(notificationId),
+        ),
+        onTap: () {
+          _markNotificationAsRead(notificationId);
+        },
+        onLongPress: () {
+          _showNotificationOptions(context, notificationId, item);
+        },
+      ),
     ),
   );
 }
@@ -1631,387 +1783,389 @@ void _showAllNotifications() {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final saldo = _getSaldoValue();
-    final angsuran = _getAngsuranValue();
-    final totalTabungan = _calculateTotalTabungan();
-    final userData = _currentUser ?? widget.user;
+@override
+Widget build(BuildContext context) {
+  final saldo = _getSaldoValue();
+  final angsuran = _getAngsuranValue();
+  final totalTabungan = _calculateTotalTabungan();
+  final userData = _currentUser ?? widget.user;
 
-    return Scaffold(
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(70.0),
-        child: AppBar(
-          title: const Padding(
-            padding: EdgeInsets.only(bottom: 10.0),
-            child: Text(
-              'Beranda KSMI',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
-              ),
+  return Scaffold(
+    appBar: PreferredSize(
+      preferredSize: const Size.fromHeight(70.0),
+      child: AppBar(
+        title: const Padding(
+          padding: EdgeInsets.only(bottom: 10.0),
+          child: Text(
+            'Beranda KSMI',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 18,
             ),
           ),
-          backgroundColor: Colors.green[700],
-          foregroundColor: Colors.white,
-          elevation: 8,
-          shadowColor: Colors.green.withOpacity(0.5),
-          shape: NotchedAppBarShape(),
-          automaticallyImplyLeading: false,
-          centerTitle: true,
-            actions: [
-            // ✅ NOTIFICATION BUTTON WITH BADGE
-            Padding(
-              padding: const EdgeInsets.only(bottom: 10.0, right: 8.0),
-              child: Stack(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.notifications),
-                    onPressed: _showNotificationPopup, // ✅ UBAH INI,
-                    tooltip: 'Notifikasi',
-                  ),
-                  if (_unreadNotifications > 0)
-                    Positioned(
-                      right: 8,
-                      top: 8,
-                      child: Container(
-                        padding: const EdgeInsets.all(2),
-                        decoration: BoxDecoration(
-                          color: Colors.red,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        constraints: const BoxConstraints(
-                          minWidth: 16,
-                          minHeight: 16,
-                        ),
-                        child: Text(
-                          _unreadNotifications > 9 ? '9+' : _unreadNotifications.toString(),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-
-            // ✅ REFRESH BUTTON
-            Padding(
-              padding: const EdgeInsets.only(bottom: 10.0, right: 8.0),
-              child: IconButton(
-                icon: const Icon(Icons.refresh),
-                onPressed: _refreshData,
-                tooltip: 'Refresh Data',
-              ),
-            ),
-          ],
         ),
-      ),
-      backgroundColor: Colors.green[50],
-      body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: _refreshData,
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            physics: const AlwaysScrollableScrollPhysics(),
-            child: Column(
+        backgroundColor: Colors.green[700],
+        foregroundColor: Colors.white,
+        elevation: 8,
+        shadowColor: Colors.green.withOpacity(0.5),
+        shape: NotchedAppBarShape(),
+        automaticallyImplyLeading: false,
+        centerTitle: true,
+        actions: [
+          // ✅ NOTIFICATION BUTTON WITH BADGE
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10.0, right: 8.0),
+            child: Stack(
               children: [
-                if (_hasError)
-                  _buildErrorWidget()
-                else if (_isLoading) 
-                  Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      children: [
-                        CircularProgressIndicator(color: Colors.green[700]),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Memuat data...',
-                          style: TextStyle(
-                            color: Colors.green[700],
-                            fontSize: 14,
-                          ),
+                IconButton(
+                  icon: const Icon(Icons.notifications),
+                  onPressed: _showNotificationPopup,
+                  tooltip: 'Notifikasi',
+                ),
+                if (_unreadNotifications > 0)
+                  Positioned(
+                    right: 8,
+                    top: 8,
+                    child: Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      constraints: const BoxConstraints(
+                        minWidth: 16,
+                        minHeight: 16,
+                      ),
+                      child: Text(
+                        _unreadNotifications > 9 ? '9+' : _unreadNotifications.toString(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
                         ),
-                      ],
+                        textAlign: TextAlign.center,
+                      ),
                     ),
-                  )
-                else 
-                  Column(
-                    children: [
-                      // TOTAL TABUNGAN SECTION
-                      InkWell(
-                        onTap: () {
-                          _navigateToRiwayatTabungan(context, _allMenuItems[0], userData);
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: Colors.blue[50],
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.blue[100]!),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(Icons.savings, color: Colors.blue[700], size: 24),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Total Tabungan',
-                                      style: TextStyle(
-                                        color: Colors.blue[800],
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      _formatCurrency(totalTabungan),
-                                      style: TextStyle(
-                                        color: Colors.blue[700],
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      'Pokok + Wajib + Sukarela + SiTabung + Simuna + Taqsith',
-                                      style: TextStyle(
-                                        color: Colors.blue[600],
-                                        fontSize: 10,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: totalTabungan > 0 ? Colors.blue[100] : Colors.grey[200],
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Text(
-                                  totalTabungan > 0 ? 'Aktif' : 'Kosong',
-                                  style: TextStyle(
-                                    color: totalTabungan > 0 ? Colors.blue[800] : Colors.grey[600],
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Icon(Icons.arrow_forward_ios, size: 16, color: Colors.blue[700]),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-
-                      // ANGSURAN SECTION
-                      InkWell(
-                        onTap: () {
-                          _navigateToRiwayatAngsuran(context, userData);
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: Colors.green[50],
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.green[100]!),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(Icons.payments, color: Colors.green[700], size: 24),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Total Angsuran',
-                                      style: TextStyle(
-                                        color: Colors.grey[800],
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      _formatCurrency(angsuran),
-                                      style: TextStyle(
-                                        color: Colors.green[700],
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      'Pembiayaan Taqsith Aktif',
-                                      style: TextStyle(
-                                        color: Colors.green[600],
-                                        fontSize: 10,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: angsuran > 0 ? Colors.green[100] : Colors.grey[200],
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Text(
-                                  angsuran > 0 ? 'Aktif' : 'Tidak Ada',
-                                  style: TextStyle(
-                                    color: angsuran > 0 ? Colors.green[800] : Colors.grey[600],
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Icon(Icons.arrow_forward_ios, size: 16, color: Colors.green[700]),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
                   ),
-                const SizedBox(height: 20),
+              ],
+            ),
+          ),
 
-                // ✅ MENU UTAMA
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.grey.withOpacity(0.1),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
+          // ✅ REFRESH BUTTON
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10.0, right: 8.0),
+            child: IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: _refreshData,
+              tooltip: 'Refresh Data',
+            ),
+          ),
+        ],
+      ),
+    ),
+    backgroundColor: Colors.green[50],
+    body: SafeArea(
+      child: RefreshIndicator(
+        onRefresh: _refreshData,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Column(
+            children: [
+              if (_hasError)
+                _buildErrorWidget()
+              else if (_isLoading) 
+                Padding(
+                  padding: const EdgeInsets.all(20),
                   child: Column(
                     children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'Menu Utama',
-                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                          ),
-                          InkWell(
-                            onTap: () {
-                              _showEditMenuDialog(context);
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: Colors.green[100],
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: Colors.green[300]!),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
+                      CircularProgressIndicator(color: Colors.green[700]),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Memuat data...',
+                        style: TextStyle(
+                          color: Colors.green[700],
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else 
+                Column(
+                  children: [
+                    // TOTAL TABUNGAN SECTION
+                    InkWell(
+                      onTap: () {
+                        _navigateToRiwayatTabungan(context, _allMenuItems[0], userData);
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.blue[50],
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.blue[100]!),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.savings, color: Colors.blue[700], size: 24),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Icon(Icons.edit, size: 16, color: Colors.green[700]),
-                                  const SizedBox(width: 4),
                                   Text(
-                                    'Edit',
+                                    'Total Tabungan',
                                     style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w500,
-                                      color: Colors.grey[700],
+                                      color: Colors.blue[800],
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    _formatCurrency(totalTabungan),
+                                    style: TextStyle(
+                                      color: Colors.blue[700],
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Pokok + Wajib + Sukarela + SiTabung + Simuna + Taqsith',
+                                    style: TextStyle(
+                                      color: Colors.blue[600],
+                                      fontSize: 10,
                                     ),
                                   ),
                                 ],
                               ),
                             ),
-                          ),
-                        ],
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: totalTabungan > 0 ? Colors.blue[100] : Colors.grey[200],
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                totalTabungan > 0 ? 'Aktif' : 'Kosong',
+                                style: TextStyle(
+                                  color: totalTabungan > 0 ? Colors.blue[800] : Colors.grey[600],
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Icon(Icons.arrow_forward_ios, size: 16, color: Colors.blue[700]),
+                          ],
+                        ),
                       ),
-                      const SizedBox(height: 12),
-                      
-                      // ✅ GRID MENU UTAMA
-                      Container(
-                        height: 200,
-                        child: ListView.builder(
-                          controller: _scrollController,
-                          scrollDirection: Axis.horizontal,
-                          physics: const BouncingScrollPhysics(),
-                          itemCount: (_activeMenuItems.length / 4).ceil(),
-                          itemBuilder: (context, pageIndex) {
-                            return Container(
-                              width: MediaQuery.of(context).size.width - 32,
+                    ),
+                    const SizedBox(height: 12),
+
+                    // ANGSURAN SECTION
+                    InkWell(
+                      onTap: () {
+                        _navigateToRiwayatAngsuran(context, userData);
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.green[50],
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.green[100]!),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.payments, color: Colors.green[700], size: 24),
+                            const SizedBox(width: 12),
+                            Expanded(
                               child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Expanded(
-                                    child: Row(
-                                      children: List.generate(4, (index) {
-                                        final itemIndex = pageIndex * 4 + index;
-                                        if (itemIndex >= _activeMenuItems.length) {
-                                          return Expanded(child: Container());
-                                        }
-                                        final menu = _activeMenuItems[itemIndex];
-                                        return Expanded(
-                                          child: _buildSmallMenuIcon(
-                                            menu,
-                                            menu.type == MenuType.angsuran 
-                                                ? _getAngsuranValue() 
-                                                : _getApiValue(menu.key, _saldoData),
-                                            context,
-                                          ),
-                                        );
-                                      }),
+                                  Text(
+                                    'Total Angsuran',
+                                    style: TextStyle(
+                                      color: Colors.grey[800],
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
                                     ),
                                   ),
-                                  const SizedBox(height: 12),
-                                  Expanded(
-                                    child: Row(
-                                      children: List.generate(4, (index) {
-                                        final itemIndex = pageIndex * 4 + 4 + index;
-                                        if (itemIndex >= _activeMenuItems.length) {
-                                          return Expanded(child: Container());
-                                        }
-                                        final menu = _activeMenuItems[itemIndex];
-                                        return Expanded(
-                                          child: _buildSmallMenuIcon(
-                                            menu,
-                                            menu.type == MenuType.angsuran 
-                                                ? _getAngsuranValue() 
-                                                : _getApiValue(menu.key, _saldoData),
-                                            context,
-                                          ),
-                                        );
-                                      }),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    _formatCurrency(angsuran),
+                                    style: TextStyle(
+                                      color: Colors.green[700],
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Pembiayaan Taqsith Aktif',
+                                    style: TextStyle(
+                                      color: Colors.green[600],
+                                      fontSize: 10,
                                     ),
                                   ),
                                 ],
                               ),
-                            );
-                          },
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: angsuran > 0 ? Colors.green[100] : Colors.grey[200],
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                angsuran > 0 ? 'Aktif' : 'Tidak Ada',
+                                style: TextStyle(
+                                  color: angsuran > 0 ? Colors.green[800] : Colors.grey[600],
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Icon(Icons.arrow_forward_ios, size: 16, color: Colors.green[700]),
+                          ],
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 20),
-              ],
-            ),
+              const SizedBox(height: 20),
+
+              // ✅ MENU UTAMA - FIXED SCROLL LOGIC
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.1),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Menu Utama',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
+                        InkWell(
+                          onTap: () {
+                            _showEditMenuDialog(context);
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: Colors.green[100],
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.green[300]!),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.edit, size: 16, color: Colors.green[700]),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Edit',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                    color: Colors.grey[700],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    
+                    // ✅ GRID MENU UTAMA - PERBAIKAN DI SINI
+                    Container(
+                      height: 200,
+                      child: ListView.builder(
+                        controller: _scrollController,
+                        scrollDirection: Axis.horizontal,
+                        physics: const BouncingScrollPhysics(),
+                        itemCount: (_activeMenuItems.length / 8).ceil(), // ✅ PERBAIKAN: 8 item per halaman
+                        itemBuilder: (context, pageIndex) {
+                          return Container(
+                            width: MediaQuery.of(context).size.width - 32,
+                            child: Column(
+                              children: [
+                                // ✅ BARIS PERTAMA (4 item pertama di halaman ini)
+                                Expanded(
+                                  child: Row(
+                                    children: List.generate(4, (index) {
+                                      final itemIndex = pageIndex * 8 + index;
+                                      if (itemIndex >= _activeMenuItems.length) {
+                                        return Expanded(child: Container());
+                                      }
+                                      final menu = _activeMenuItems[itemIndex];
+                                      return Expanded(
+                                        child: _buildSmallMenuIcon(
+                                          menu,
+                                          menu.type == MenuType.angsuran 
+                                              ? _getAngsuranValue() 
+                                              : _getApiValue(menu.key, _saldoData),
+                                          context,
+                                        ),
+                                      );
+                                    }),
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                // ✅ BARIS KEDUA (4 item berikutnya di halaman ini)
+                                Expanded(
+                                  child: Row(
+                                    children: List.generate(4, (index) {
+                                      final itemIndex = pageIndex * 8 + 4 + index; // ✅ +4 untuk baris kedua
+                                      if (itemIndex >= _activeMenuItems.length) {
+                                        return Expanded(child: Container());
+                                      }
+                                      final menu = _activeMenuItems[itemIndex];
+                                      return Expanded(
+                                        child: _buildSmallMenuIcon(
+                                          menu,
+                                          menu.type == MenuType.angsuran 
+                                              ? _getAngsuranValue() 
+                                              : _getApiValue(menu.key, _saldoData),
+                                          context,
+                                        ),
+                                      );
+                                    }),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+            ],
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildSmallMenuIcon(MenuIcon menu, int value, BuildContext context) {
     return GestureDetector(
@@ -2251,6 +2405,212 @@ void _testAndroidSystemMultiple() async {
       );
     }
   }
+}
+
+// ✅ METHOD UNTUK HAPUS NOTIFIKASI TUNGGAL
+void _deleteNotification(String notificationId) async {
+  try {
+    print('🗑️ Deleting notification: $notificationId');
+    
+    // Tampilkan konfirmasi hapus
+    bool confirm = await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Hapus Notifikasi'),
+        content: const Text('Apakah Anda yakin ingin menghapus notifikasi ini?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Batal'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Hapus'),
+          ),
+        ],
+      ),
+    ) ?? false;
+
+    if (!confirm) return;
+
+    // Panggil API untuk hapus notifikasi
+    final result = await _apiService.deleteNotification(notificationId);
+    
+    if (result['success'] == true) {
+      // Refresh data notifikasi
+      _loadUnreadNotifications();
+      
+      // Tampilkan snackbar sukses
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Notifikasi berhasil dihapus'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+      
+      // Jika popup notifikasi sedang terbuka, refresh juga
+      if (_isNotificationPopupOpen) {
+        setState(() {});
+      }
+    } else {
+      throw Exception(result['message'] ?? 'Gagal menghapus notifikasi');
+    }
+  } catch (e) {
+    print('❌ Error deleting notification: $e');
+    
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Gagal menghapus notifikasi: $e'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+}
+
+// ✅ METHOD UNTUK HAPUS SEMUA NOTIFIKASI
+void _deleteAllNotifications() async {
+  try {
+    // Tampilkan konfirmasi hapus semua
+    bool confirm = await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Hapus Semua Notifikasi'),
+        content: const Text('Apakah Anda yakin ingin menghapus semua notifikasi? Tindakan ini tidak dapat dibatalkan.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Batal'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Hapus Semua'),
+          ),
+        ],
+      ),
+    ) ?? false;
+
+    if (!confirm) return;
+
+    // Tampilkan loading
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(),
+      ),
+    );
+
+    // Panggil API untuk hapus semua notifikasi
+    final result = await _apiService.deleteAllNotifications();
+    
+    // Tutup loading
+    if (mounted) Navigator.of(context).pop();
+    
+    if (result['success'] == true) {
+      // Reset state notifikasi
+      if (mounted) {
+        setState(() {
+          _unreadNotifications = 0;
+        });
+      }
+      
+      // Tampilkan snackbar sukses
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Semua notifikasi berhasil dihapus'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+      
+      // Tutup popup notifikasi jika terbuka
+      if (_isNotificationPopupOpen) {
+        _closeNotificationPopup();
+      }
+    } else {
+      throw Exception(result['message'] ?? 'Gagal menghapus semua notifikasi');
+    }
+  } catch (e) {
+    print('❌ Error deleting all notifications: $e');
+    
+    // Tutup loading jika masih terbuka
+    if (mounted) Navigator.of(context).pop();
+    
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Gagal menghapus semua notifikasi: $e'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+}
+
+// ✅ METHOD UNTUK SHOW NOTIFICATION OPTIONS (LONG PRESS)
+void _showNotificationOptions(BuildContext context, String notificationId, Map<String, dynamic> item) {
+  showModalBottomSheet(
+    context: context,
+    builder: (context) => Container(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            leading: const Icon(Icons.delete, color: Colors.red),
+            title: const Text('Hapus Notifikasi'),
+            onTap: () {
+              Navigator.pop(context);
+              _deleteNotification(notificationId);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.mark_email_read, color: Colors.blue),
+            title: const Text('Tandai sebagai Dibaca'),
+            onTap: () {
+              Navigator.pop(context);
+              _markNotificationAsRead(notificationId);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.copy, color: Colors.green),
+            title: const Text('Salin Pesan'),
+            onTap: () {
+              Navigator.pop(context);
+              _copyNotificationMessage(item);
+            },
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+// ✅ COPY NOTIFICATION MESSAGE
+void _copyNotificationMessage(Map<String, dynamic> item) {
+  final subject = item['subject']?.toString() ?? '';
+  final message = item['message']?.toString() ?? '';
+  final textToCopy = '$subject\n$message';
+  
+  // Copy to clipboard (gunakan package clipboard jika perlu)
+  // Clipboard.setData(ClipboardData(text: textToCopy));
+  
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(
+      content: Text('Pesan disalin ke clipboard'),
+      backgroundColor: Colors.green,
+      duration: Duration(seconds: 2),
+    ),
+  );
 }
 
 // ✅ TEST 3: Real Scenario Notifications

@@ -74,11 +74,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _isUploading = false;
   bool _isRefreshing = false;
   String? _uploadError;
+  String? _authStatusUser;
 
 @override
 void initState() {
   super.initState();
   _currentUser = Map<String, dynamic>.from(widget.user);
+  _loadAuthStatus();
   
   // ✅ CEK STATUS USER DAN REDIRECT JIKA SUDAH VERIFIED
   _checkUserStatusAndRedirect();
@@ -92,17 +94,58 @@ void initState() {
   });
 }
 
+  // ✅ METHOD BARU: LOAD STATUS DARI AUTH LOGIN
+  Future<void> _loadAuthStatus() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final authStatus = prefs.getString('auth_status_user');
+      
+      print('🎯 Loading auth status from SharedPreferences: $authStatus');
+      
+      if (mounted) {
+        setState(() {
+          _authStatusUser = authStatus ?? '0';
+        });
+      }
+    } catch (e) {
+      print('❌ Error loading auth status: $e');
+      if (mounted) {
+        setState(() {
+          _authStatusUser = '0';
+        });
+      }
+    }
+  }
+
+    // ✅ METHOD BARU: GET FINAL STATUS (PRIORITAS AUTH)
+  String get _finalStatusUser {
+    if (_authStatusUser != null && _authStatusUser!.isNotEmpty) {
+      return _authStatusUser!;
+    }
+    
+    final currentStatus = _currentUser['status_user']?.toString();
+    if (currentStatus != null && currentStatus.isNotEmpty && currentStatus != 'null') {
+      return currentStatus;
+    }
+    
+    final widgetStatus = widget.user['status_user']?.toString();
+    if (widgetStatus != null && widgetStatus.isNotEmpty && widgetStatus != 'null') {
+      return widgetStatus;
+    }
+    
+    return '0';
+  }
+
+
 // ✅ TAMBAHKAN METHOD INI:
 void _checkUserStatusAndRedirect() {
   try {
-    final statusUser = _currentUser['status_user']?.toString() ?? '0';
-    final isVerified = statusUser == '1';
+    final isVerified = _isUserVerified;
     
-    print('🎯 ProfileScreen - User Status Check: $statusUser → Verified: $isVerified');
+    print('🎯 ProfileScreen - User Status Check: $_finalStatusUser → Verified: $isVerified');
     
     if (isVerified) {
       print('✅ User sudah verified, bisa akses dashboard');
-      // Tidak perlu redirect, biarkan user tetap di profile jika mau
     } else {
       print('⏳ User belum verified, hanya bisa akses profile');
     }
@@ -306,6 +349,7 @@ bool _hasCompleteData() {
   
   return hasBasicInfo && hasDocumentInfo;
 }
+
 
 // ✅ FALLBACK: LOAD DATA DARI DASHBOARD
 Future<void> _loadFromDashboardFallback() async {
@@ -1424,6 +1468,11 @@ bool _validateBeforeUpload() {
   return true;
 }
 
+// ✅ METHOD BARU: CEK APAKAH VERIFIED
+bool get _isUserVerified {
+  return _finalStatusUser == '1' || _finalStatusUser == 1;
+}
+
   // ✅ HELPER: SHORTEN URL UNTUK DISPLAY
   String _shortenUrl(String url) {
     if (url.length <= 30) return url;
@@ -1905,22 +1954,13 @@ Widget _buildVerificationProgress() {
   );
 }
 
-// ✅ FIX: CEK STATUS USER DARI MULTIPLE SOURCE
+// ✅ UPDATE: BUILD USER STATUS BANNER
 Widget _buildUserStatusBanner() {
-  // ✅ CEK DARI SEMUA SUMBER YANG MUNGKIN
-  final userStatus = _currentUser['status_user'] ?? 
-                    _currentUser['status'] ?? 
-                    widget.user['status_user'] ?? 
-                    widget.user['status'] ?? 0;
-  
-  final isVerified = userStatus == 1 || userStatus == '1';
+  final isVerified = _isUserVerified;
   
   print('🎯 User Status Check in Profile:');
-  print('   - _currentUser status_user: ${_currentUser['status_user']}');
-  print('   - _currentUser status: ${_currentUser['status']}');
-  print('   - widget.user status_user: ${widget.user['status_user']}');
-  print('   - widget.user status: ${widget.user['status']}');
-  print('   - Final: $userStatus → Verified: $isVerified');
+  print('   - Auth Status: $_authStatusUser');
+  print('   - Final Status: $_finalStatusUser → Verified: $isVerified');
   
   if (isVerified) {
     return Container(
@@ -2001,10 +2041,9 @@ Widget _buildUserStatusBanner() {
   }
 }
 
-// ✅ VERIFICATION TIMELINE UNTUK STATUS 0
+// ✅ UPDATE: VERIFICATION TIMELINE
 Widget _buildVerificationTimeline() {
-  final userStatus = _currentUser['status_user'] ?? 0;
-  final isVerified = userStatus == 1 || userStatus == '1';
+  final isVerified = _isUserVerified;
   
   return Container(
     padding: const EdgeInsets.all(16),
@@ -3061,18 +3100,17 @@ Widget? _getProfilePlaceholder() {
     print('📋 User key copied to clipboard: ${userKey.substring(0, 10)}...');
   }
 
-// ✅ UPDATE BUILD METHOD - TAMBAHKAN FAB UNTUK KE DASHBOARD:
 @override
 Widget build(BuildContext context) {
-  final userStatus = _currentUser['status_user']?.toString() ?? '0';
-  final isVerified = userStatus == '1';
+  final isVerified = _isUserVerified;
   
   print('🎯 BUILD PROFILE - Status Debug:');
-  print('   - _currentUser keys: ${_currentUser.keys}');
-  print('   - widget.user keys: ${widget.user.keys}');
-  print('   - Final Status: $userStatus → Verified: $isVerified');
-    // ✅ DEBUG: TAMPILKAN SEMUA DATA SETIAP KALI BUILD
+  print('   - Auth Status: $_authStatusUser');
+  print('   - Final Status: $_finalStatusUser → Verified: $isVerified');
+  
+  // ✅ DEBUG: TAMPILKAN SEMUA DATA SETIAP KALI BUILD
   _debugAllUserData();
+  
   // ✅ TAMBAHKAN DEBUG LOG SETIAP KALI BUILD DIPANGGIL
   print('🔄 BUILD METHOD CALLED - _isLoading: $_isLoading, UserData: ${_currentUser.isNotEmpty}');
   print('   - username: ${_currentUser['username']}');
@@ -3199,7 +3237,7 @@ Widget build(BuildContext context) {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-          _buildStatusRestrictionBanner(),
+            _buildStatusRestrictionBanner(),
 
             // ✅ ERROR MESSAGE
             if (_uploadError != null) ...[
@@ -3234,15 +3272,15 @@ Widget build(BuildContext context) {
               ),
             ],
 
-            // ✅ PROFILE HEADER (existing)
+            // ✅ PROFILE HEADER
             _buildProfileHeader(),
 
-            // ✅ TAMBAH USER STATUS BANNER DI SINI
+            // ✅ USER STATUS BANNER
             _buildUserStatusBanner(),
 
             const SizedBox(height: 16),
 
-            // ✅ TAMBAH VERIFICATION TIMELINE UNTUK STATUS 0
+            // ✅ VERIFICATION TIMELINE UNTUK STATUS 0
             if (!isVerified) _buildVerificationTimeline(),
 
             const SizedBox(height: 16),
@@ -3262,12 +3300,12 @@ Widget build(BuildContext context) {
 
             const SizedBox(height: 16),
 
-            // ✅ INFORMASI KOPERASI (dengan user key)
+            // ✅ INFORMASI KOPERASI
             _buildCooperativeInfoSection(),
 
             const SizedBox(height: 16),
 
-            // ✅ API ACCESS SECTION BARU
+            // ✅ API ACCESS SECTION
             _buildApiAccessSection(),
 
             const SizedBox(height: 30),

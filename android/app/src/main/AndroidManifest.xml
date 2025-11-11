@@ -19,7 +19,8 @@
     <application
         android:name=".Application"
         android:label="Koperasi KSMI"
-        android:icon="@mipmap/launcher_icon"
+        android:icon="@mipmap/ic_launcher" 
+        android:roundIcon="@mipmap/ic_launcher_round" 
         android:requestLegacyExternalStorage="true"
         android:usesCleartextTraffic="true"
         android:allowBackup="true"
@@ -32,7 +33,7 @@
             
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_icon"
-            android:resource="@mipmap/ic_launcher" />
+            android:resource="@mipmap/ic_launcher" />  <!-- ✅ SUDAH BENAR -->
         
         <activity
             android:name=".MainActivity"

@@ -651,61 +651,56 @@ void _proceedBasedOnUserStatus() {
   }
 }
 
-  // ✅ PERBAIKAN: NAVIGATION KE DASHBOARD DENGAN SAFE CHECK
-  void _proceedToDashboard() {
-    print('🚀 Starting proceed to dashboard...');
-    
-    if (_isNavigating) {
-      print('⚠️ Already navigating, skipping...');
+// ✅ PERBAIKAN: METHOD PROCEED TO DASHBOARD YANG SIMPLE DAN WORKING
+void _proceedToDashboard() {
+  print('🚀 _proceedToDashboard called');
+  
+  if (_isNavigating) {
+    print('⚠️ Already navigating, skipping...');
+    return;
+  }
+  
+  _isNavigating = true;
+
+  try {
+    // ✅ PASTIKAN WIDGET MASIH MOUNTED
+    if (!mounted) {
+      print('❌ Widget not mounted, cannot navigate');
       return;
     }
+
+    final updatedUser = Map<String, dynamic>.from(_currentUser);
     
-    _isNavigating = true;
-
-    // ✅ GUNAKAN Future.microtask UNTUK MEMASTIKAN BUILD SELESAI
-    Future.microtask(() {
-      if (!mounted) {
-        print('🔄 Widget not mounted, skipping navigation');
-        return;
-      }
-
-      final updatedUser = Map<String, dynamic>.from(_currentUser);
-
-      print('🎯 Final navigation check:');
-      print('   - KTP Server: ${_isDocumentUploadedToServer('ktp')}');
-      print('   - KK Server: ${_isDocumentUploadedToServer('kk')}');
-      print('   - Foto Diri Server: ${_isDocumentUploadedToServer('diri')}');
-
+    print('🎯 Navigating to DashboardMain with user status: ${updatedUser['status_user']}');
+    
+    // ✅ GUNAKAN NAVIGATOR YANG LEBIH SIMPLE
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(
+        builder: (context) => DashboardMain(user: updatedUser),
+      ),
+      (route) => false,
+    );
+    
+    print('✅ Navigation to dashboard completed');
+    
+  } catch (e) {
+    print('❌ Navigation error in _proceedToDashboard: $e');
+    _isNavigating = false;
+    
+    // ✅ FALLBACK: COBA NAVIGATION ALTERNATIF
+    if (mounted) {
       try {
-        if (widget.onDocumentsComplete != null) {
-          print('📞 Memanggil callback onDocumentsComplete...');
-          widget.onDocumentsComplete!();
-        } else {
-          print('🔄 Navigasi langsung ke Dashboard...');
-          Navigator.pushAndRemoveUntil(
-            context,
-            MaterialPageRoute(builder: (_) => DashboardMain(user: updatedUser)),
-            (route) => false,
-          );
-          print('✅ Navigation to dashboard successful');
-        }
-      } catch (e) {
-        print('❌ Navigation error: $e');
-        // FALLBACK: Coba navigasi sederhana
-        if (mounted) {
-          try {
-            Navigator.pushAndRemoveUntil(
-              context,
-              MaterialPageRoute(builder: (_) => DashboardMain(user: _currentUser)),
-              (route) => false,
-            );
-          } catch (e2) {
-            print('❌ Fallback navigation also failed: $e2');
-          }
-        }
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => DashboardMain(user: _currentUser)),
+          (route) => false,
+        );
+      } catch (e2) {
+        print('❌ Fallback navigation also failed: $e2');
       }
-    });
+    }
   }
+}
 
 // ✅ UPDATE: SHOW VERIFICATION DIALOG
 void _showVerificationDialog() {
@@ -1080,25 +1075,19 @@ void _proceedToProfileOnly() {
         children: [
           Row(
             children: [
-              Icon(Icons.cloud_upload, color: Colors.blue[700], size: 24),
+              Icon(Icons.cloud_upload, color: Colors.green[700], size: 24),
               const SizedBox(width: 8),
               Text(
-                allFilesComplete ? 'Siap Upload 4 File!' : 'Upload Manual',
+                allFilesComplete ? 'Siap Upload 4 File!' : 'Upload Dokumen',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
-                  color: Colors.blue[700],
+                  color: Colors.green[700],
                 ),
               ),
             ],
           ),
           const SizedBox(height: 8),
-          Text(
-            allFilesComplete 
-                ? 'Semua 3 dokumen sudah lengkap. Sistem akan menggunakan foto diri sebagai foto bukti. Total 4 file akan diupload ke server.'
-                : 'Upload dokumen yang sudah dipilih atau lengkapi semua dokumen terlebih dahulu.',
-            style: TextStyle(fontSize: 12, color: Colors.blue[700]),
-          ),
           
           // ✅ TAMBAHKAN INFO VERIFIKASI
           if (allFilesComplete) ...[
@@ -1113,7 +1102,7 @@ void _proceedToProfileOnly() {
             child: ElevatedButton.icon(
               onPressed: _storageService.isUploading ? null : _uploadAllFiles,
               style: ElevatedButton.styleFrom(
-                backgroundColor: allFilesComplete ? Colors.green[700] : Colors.blue[700],
+                backgroundColor: allFilesComplete ? Colors.green[700] : Colors.green[700],
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -1130,7 +1119,7 @@ void _proceedToProfileOnly() {
                       ),
                     )
                   : Text(
-                      allFilesComplete ? 'Upload 4 File ke Server' : 'Upload Manual',
+                      allFilesComplete ? 'Upload 4 File ke Server' : 'Upload Dokumen',
                       style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
@@ -1713,50 +1702,6 @@ void _proceedToProfileOnly() {
                       ),
                       const SizedBox(height: 16),
                     ],
-
-                    // TROUBLESHOOTING INFO
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.blue[50],
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.blue[200]!),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(Icons.help_outline, color: Colors.blue[700], size: 18),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Sistem 4 File:',
-                                style: TextStyle(
-                                  color: Colors.blue[700],
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '• Upload 3 file asli (KTP, KK, Foto Diri)\n'
-                            '• Foto diri digunakan sebagai foto bukti\n'
-                            '• Total 4 file dikirim ke server\n'
-                            '• Tidak ada file dummy/dummy.jpg\n'
-                            '• Semua file berasal dari user\n'
-                            '• Ukuran maksimal 5MB per file\n'
-                            '• Format JPG/PNG didukung\n'
-                            '• Data tersimpan meski app ditutup',
-                            style: TextStyle(
-                              color: Colors.blue[700],
-                              fontSize: 10,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
                   ],
                 ),
               ),
