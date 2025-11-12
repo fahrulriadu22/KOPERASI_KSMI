@@ -179,128 +179,121 @@ void _generateAngsuranTypes() {
   print('✅ Generated ${_angsuranTypes.length} angsuran types');
 }
 
-// ✅ PARSING DATA DARI API - SESUAI STRUCTURE POSTMAN
-List<Map<String, dynamic>> _parseTaqsithData(List<dynamic> apiData) {
-  final List<Map<String, dynamic>> parsedData = [];
-  
-  for (var kreditItem in apiData) {
-    try {
-      if (kreditItem is Map<String, dynamic>) {
-        final idKredit = kreditItem['id_kredit']?.toString();
-        final namaBarang = kreditItem['nama_barang']?.toString() ?? 'Produk';
-        final angsuranList = kreditItem['angsuran'];
-        
-        // ✅ CARI DATA MASTER UNTUK INFORMASI TAMBAHAN
-        final masterData = _findMasterData(idKredit);
-        final jangkaWaktu = masterData?['jangka_waktu']?.toString() ?? '18 Bulan';
-        final statusMaster = masterData?['status']?.toString() ?? 'TEPAT WAKTU';
-        final angsuranMaster = double.tryParse(masterData?['angsuran']?.toString() ?? '0') ?? 0;
-        
-        // ✅ GUNAKAN ID_KREDIT + NAMA_BARANG SEBAGAI JENIS
-        final jenisPembiayaan = '$idKredit-$namaBarang';
-        
-        if (angsuranList is List && angsuranList.isNotEmpty) {
-          for (var angsuranItem in angsuranList) {
-            if (angsuranItem is Map<String, dynamic>) {
-              // ✅ PARSE DATA DARI RESPONSE API
-              final harga = double.tryParse(angsuranItem['harga']?.toString() ?? '0') ?? 0;
-              final sisa = double.tryParse(angsuranItem['sisa']?.toString() ?? '0') ?? 0;
-              final ke = int.tryParse(angsuranItem['ke']?.toString() ?? '0') ?? 0;
-              final hargaBagiHasil = double.tryParse(angsuranItem['harga_bagi_hasil']?.toString() ?? '0') ?? 0;
-              final sisaBagiHasil = double.tryParse(angsuranItem['sisa_bagi_hasil']?.toString() ?? '0') ?? 0;
-              final tanggalBuat = angsuranItem['tanggal_buat']?.toString() ?? '';
-              final invNo = angsuranItem['inv_no']?.toString() ?? '';
-              final idRujukan = angsuranItem['id_rujukan']?.toString() ?? '';
-              
-              // ✅ TENTUKAN STATUS BERDASARKAN SISA
-              String statusAngsuran = 'aktif';
-              if (sisa <= 0) {
-                statusAngsuran = 'lunas';
-              } else if (ke > 1) {
-                statusAngsuran = 'berjalan';
-              }
-              
-              // ✅ HITUNG TOTAL ANGSURAN (18 BULAN)
-              final totalAngsuran = angsuranMaster > 0 ? angsuranMaster * 18 : harga * 18;
-              
-              parsedData.add({
-                'id': '${idRujukan}_$ke',
-                'tanggal': tanggalBuat,
-                'no_invoice': invNo,
-                'jumlah': harga,
-                'sisa_angsuran': sisa,
-                'ke': ke,
-                'id_kredit': idKredit,
-                'nama_barang': namaBarang,
-                'jenis': jenisPembiayaan,
-                'keterangan': 'Angsuran $namaBarang - Cicilan ke-$ke',
-                'status': statusAngsuran,
-                'harga_bagi_hasil': hargaBagiHasil,
-                'sisa_bagi_hasil': sisaBagiHasil,
-                'total_angsuran': totalAngsuran,
-                'tenor': _extractTenor(jangkaWaktu),
-                'jangka_waktu': jangkaWaktu,
-                'status_master': statusMaster,
-                'angsuran_master': angsuranMaster,
-              });
-            }
-          }
-        } else {
-          // ✅ JIKA TIDAK ADA ANGSURAN, TAMPILKAN DATA KREDIT SAJA
-          print('⚠️ Tidak ada data angsuran untuk kredit $idKredit - $namaBarang');
-          
-          parsedData.add({
-            'id': 'kredit_$idKredit',
-            'tanggal': '',
-            'no_invoice': '',
-            'jumlah': 0,
-            'sisa_angsuran': 0,
-            'ke': 0,
-            'id_kredit': idKredit,
-            'nama_barang': namaBarang,
-            'jenis': jenisPembiayaan,
-            'keterangan': 'Pembiayaan $namaBarang (Belum ada angsuran)',
-            'status': 'belum mulai',
-            'harga_bagi_hasil': 0,
-            'sisa_bagi_hasil': 0,
-            'total_angsuran': angsuranMaster * 18,
-            'tenor': _extractTenor(jangkaWaktu),
-            'jangka_waktu': jangkaWaktu,
-            'status_master': statusMaster,
-            'angsuran_master': angsuranMaster,
-          });
-        }
-      }
-    } catch (e) {
-      print('❌ Error parsing item: $e');
-    }
-  }
-  
-  // ✅ PERUBAHAN DI SINI: URUTKAN BERDASARKAN ANGSURAN KE (TERKECIL KE TERBESAR)
-  // DAN JIKA ADA YANG BELUM MULAI (ke=0) DIBAWAH
-  parsedData.sort((a, b) {
-    final keA = a['ke'] as int;
-    final keB = b['ke'] as int;
+  // ✅ PARSING DATA DARI API - SESUAI STRUCTURE POSTMAN
+  List<Map<String, dynamic>> _parseTaqsithData(List<dynamic> apiData) {
+    final List<Map<String, dynamic>> parsedData = [];
     
-    // Jika kedua data memiliki ke > 0, urutkan dari terkecil ke terbesar
-    if (keA > 0 && keB > 0) {
-      return keA.compareTo(keB);
+    for (var kreditItem in apiData) {
+      try {
+        if (kreditItem is Map<String, dynamic>) {
+          final idKredit = kreditItem['id_kredit']?.toString();
+          final namaBarang = kreditItem['nama_barang']?.toString() ?? 'Produk';
+          final angsuranList = kreditItem['angsuran'];
+          
+          // ✅ CARI DATA MASTER UNTUK INFORMASI TAMBAHAN
+          final masterData = _findMasterData(idKredit);
+          final jangkaWaktu = masterData?['jangka_waktu']?.toString() ?? '18 Bulan';
+          final statusMaster = masterData?['status']?.toString() ?? 'TEPAT WAKTU';
+          final angsuranMaster = double.tryParse(masterData?['angsuran']?.toString() ?? '0') ?? 0;
+          
+          // ✅ GUNAKAN ID_KREDIT + NAMA_BARANG SEBAGAI JENIS
+          final jenisPembiayaan = '$idKredit-$namaBarang';
+          
+          if (angsuranList is List && angsuranList.isNotEmpty) {
+            for (var angsuranItem in angsuranList) {
+              if (angsuranItem is Map<String, dynamic>) {
+                // ✅ PARSE DATA DARI RESPONSE API
+                final harga = double.tryParse(angsuranItem['harga']?.toString() ?? '0') ?? 0;
+                final sisa = double.tryParse(angsuranItem['sisa']?.toString() ?? '0') ?? 0;
+                final ke = int.tryParse(angsuranItem['ke']?.toString() ?? '0') ?? 0;
+                final hargaBagiHasil = double.tryParse(angsuranItem['harga_bagi_hasil']?.toString() ?? '0') ?? 0;
+                final sisaBagiHasil = double.tryParse(angsuranItem['sisa_bagi_hasil']?.toString() ?? '0') ?? 0;
+                final tanggalBuat = angsuranItem['tanggal_buat']?.toString() ?? '';
+                final invNo = angsuranItem['inv_no']?.toString() ?? '';
+                final idRujukan = angsuranItem['id_rujukan']?.toString() ?? '';
+                
+                // ✅ TENTUKAN STATUS BERDASARKAN SISA
+                String statusAngsuran = 'aktif';
+                if (sisa <= 0) {
+                  statusAngsuran = 'lunas';
+                } else if (ke > 1) {
+                  statusAngsuran = 'berjalan';
+                }
+                
+                // ✅ HITUNG TOTAL ANGSURAN (18 BULAN)
+                final totalAngsuran = angsuranMaster > 0 ? angsuranMaster * 18 : harga * 18;
+                
+                parsedData.add({
+                  'id': '${idRujukan}_$ke',
+                  'tanggal': tanggalBuat,
+                  'no_invoice': invNo,
+                  'jumlah': harga,
+                  'sisa_angsuran': sisa,
+                  'ke': ke,
+                  'id_kredit': idKredit,
+                  'nama_barang': namaBarang,
+                  'jenis': jenisPembiayaan,
+                  'keterangan': 'Angsuran $namaBarang - Cicilan ke-$ke',
+                  'status': statusAngsuran,
+                  'harga_bagi_hasil': hargaBagiHasil,
+                  'sisa_bagi_hasil': sisaBagiHasil,
+                  'total_angsuran': totalAngsuran,
+                  'tenor': _extractTenor(jangkaWaktu),
+                  'jangka_waktu': jangkaWaktu,
+                  'status_master': statusMaster,
+                  'angsuran_master': angsuranMaster,
+                });
+              }
+            }
+          } else {
+            // ✅ JIKA TIDAK ADA ANGSURAN, TAMPILKAN DATA KREDIT SAJA
+            print('⚠️ Tidak ada data angsuran untuk kredit $idKredit - $namaBarang');
+            
+            parsedData.add({
+              'id': 'kredit_$idKredit',
+              'tanggal': '',
+              'no_invoice': '',
+              'jumlah': 0,
+              'sisa_angsuran': 0,
+              'ke': 0,
+              'id_kredit': idKredit,
+              'nama_barang': namaBarang,
+              'jenis': jenisPembiayaan,
+              'keterangan': 'Pembiayaan $namaBarang (Belum ada angsuran)',
+              'status': 'belum mulai',
+              'harga_bagi_hasil': 0,
+              'sisa_bagi_hasil': 0,
+              'total_angsuran': angsuranMaster * 18,
+              'tenor': _extractTenor(jangkaWaktu),
+              'jangka_waktu': jangkaWaktu,
+              'status_master': statusMaster,
+              'angsuran_master': angsuranMaster,
+            });
+          }
+        }
+      } catch (e) {
+        print('❌ Error parsing item: $e');
+      }
     }
-    // Jika salah satu ke = 0 (belum mulai), taruh di bawah
-    else if (keA == 0 && keB > 0) {
-      return 1; // a (belum mulai) di bawah b
-    }
-    else if (keA > 0 && keB == 0) {
-      return -1; // a di atas b (belum mulai)
-    }
-    // Jika kedua ke = 0, urutkan berdasarkan nama barang
-    else {
-      return (a['nama_barang'] ?? '').compareTo(b['nama_barang'] ?? '');
-    }
-  });
-  
-  return parsedData;
-}
+    
+    // ✅ URUTKAN BERDASARKAN TANGGAL (TERBARU DIATAS) DAN STATUS
+    parsedData.sort((a, b) {
+      final dateA = DateTime.tryParse(a['tanggal'] ?? '') ?? DateTime(2000);
+      final dateB = DateTime.tryParse(b['tanggal'] ?? '') ?? DateTime(2000);
+      
+      if (dateA != DateTime(2000) && dateB != DateTime(2000)) {
+        return dateB.compareTo(dateA);
+      } else if (dateA != DateTime(2000)) {
+        return -1;
+      } else if (dateB != DateTime(2000)) {
+        return 1;
+      } else {
+        return (b['nama_barang'] ?? '').compareTo(a['nama_barang'] ?? '');
+      }
+    });
+    
+    return parsedData;
+  }
 
   // ✅ CARI DATA MASTER BERDASARKAN ID_KREDIT
   Map<String, dynamic>? _findMasterData(String? idKredit) {
@@ -1014,7 +1007,7 @@ Widget build(BuildContext context) {
               color: Colors.green,
             ),
 
-          // ✅ RIWAYAT LIST - BACKGROUND PUTIH
+        // ✅ RIWAYAT LIST - BACKGROUND PUTIH
           Expanded(
             child: Container(
               color: Colors.white, // ✅ BACKGROUND PUTIH UNTUK KONTEN UTAMA
@@ -1041,11 +1034,10 @@ Widget build(BuildContext context) {
                               color: Colors.green,
                               backgroundColor: Colors.white,
                               child: ListView.separated(
-                                padding: EdgeInsets.zero,
+                                padding: EdgeInsets.zero, // ✅ HILANGKAN PADDING
                                 itemCount: _filteredRiwayat.length,
                                 separatorBuilder: (context, index) => const SizedBox(height: 4),
                                 itemBuilder: (context, index) {
-                                  // Data dengan index 0 akan menampilkan angsuran ke-1, index 1 menampilkan ke-2, dst
                                   final angsuran = _filteredRiwayat[index];
                                   final jumlah = (angsuran['jumlah'] as num?)?.toDouble() ?? 0;
                                   final jenis = angsuran['jenis']?.toString() ?? '';
@@ -1082,7 +1074,7 @@ Widget build(BuildContext context) {
                                           crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
                                             Text(
-                                              'ke-$ke',
+                                              'Angsuran ke-$ke',
                                               style: const TextStyle(
                                                 fontWeight: FontWeight.bold,
                                                 fontSize: 16,
