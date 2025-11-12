@@ -7,6 +7,7 @@ import 'aktivasi_berhasil_screen.dart';
 import 'dashboard_main.dart';
 import 'login_screen.dart';
 import 'profile_screen.dart';
+import 'package:photo_view/photo_view.dart';
 
 class UploadDokumenScreen extends StatefulWidget {
   final Map<String, dynamic> user;
@@ -477,6 +478,428 @@ class _UploadDokumenScreenState extends State<UploadDokumenScreen> {
     );
   }
 
+  // ✅ METHOD: PREVIEW IMAGE DENGAN ZOOM
+void _showZoomableImagePreview(File imageFile, String title) {
+  showDialog(
+    context: context,
+    builder: (context) => Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.all(10),
+      child: Stack(
+        children: [
+          // BACKGROUND OVERLAY
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.9),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // TITLE
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                
+                // ZOOMABLE IMAGE
+                Expanded(
+                  child: Container(
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.white30),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: PhotoView(
+                        imageProvider: FileImage(imageFile),
+                        backgroundDecoration: const BoxDecoration(
+                          color: Colors.transparent,
+                        ),
+                        minScale: PhotoViewComputedScale.contained * 0.8,
+                        maxScale: PhotoViewComputedScale.covered * 2,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                
+                // CLOSE BUTTON
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Tutup'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+// ✅ PERBAIKAN: PREVIEW IMAGE DARI FILE LOKAL
+void _showImagePreview(File imageFile, String title) {
+  showDialog(
+    context: context,
+    builder: (context) => Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.all(20),
+      child: Stack(
+        children: [
+          // BACKGROUND OVERLAY
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.8),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // TITLE
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                
+                // IMAGE CONTAINER
+                Container(
+                  width: double.infinity,
+                  height: 400,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.white30),
+                  ),
+                  child: FutureBuilder<File>(
+                    future: Future.value(imageFile),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return Container(
+                          color: Colors.grey[800],
+                          child: const Center(
+                            child: CircularProgressIndicator(),
+                          ),
+                        );
+                      }
+                      
+                      if (snapshot.hasError || !snapshot.hasData) {
+                        return Container(
+                          color: Colors.grey[800],
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.error_outline, color: Colors.red, size: 48),
+                              const SizedBox(height: 8),
+                              const Text(
+                                'Gagal memuat gambar',
+                                style: TextStyle(color: Colors.white),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Error: ${snapshot.error}',
+                                style: const TextStyle(color: Colors.white60, fontSize: 10),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+                      
+                      return ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.file(
+                          snapshot.data!,
+                          fit: BoxFit.contain,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Container(
+                              color: Colors.grey[800],
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(Icons.error_outline, color: Colors.red, size: 48),
+                                  const SizedBox(height: 8),
+                                  const Text(
+                                    'Gagal memuat gambar',
+                                    style: TextStyle(color: Colors.white),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 16),
+                
+                // ACTION BUTTONS
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // CLOSE BUTTON
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.close, color: Colors.white),
+                        label: const Text('Tutup', style: TextStyle(color: Colors.white)),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Colors.white),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    
+                    // DOWNLOAD/SHARE BUTTON (Optional)
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          // Bisa ditambahkan fitur share/save image
+                          _showSafeSnackBar('Fitur download akan datang');
+                        },
+                        icon: const Icon(Icons.download, size: 18),
+                        label: const Text('Simpan'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          
+          // CLOSE BUTTON (TOP RIGHT)
+          Positioned(
+            top: 10,
+            right: 10,
+            child: CircleAvatar(
+              backgroundColor: Colors.black54,
+              radius: 16,
+              child: IconButton(
+                icon: const Icon(Icons.close, color: Colors.white, size: 18),
+                onPressed: () => Navigator.pop(context),
+                padding: EdgeInsets.zero,
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+  // ✅ METHOD BARU: LIHAT FOTO YANG SUDAH DIUPLOAD
+// ✅ MODIFIKASI: LIHAT FOTO HANYA DARI FILE LOKAL (TIDAK DARI SERVER)
+void _viewDocument(String type, String documentName) async {
+  try {
+    print('👀 Viewing document from LOCAL: $documentName ($type)');
+    
+    // ✅ HANY CEK FILE LOKAL - TIDAK CEK SERVER
+    final fileInfo = _storageService.getFileInfo(type);
+    final hasLocalFile = fileInfo['exists'] == true;
+    
+    if (hasLocalFile) {
+      // ✅ TAMPILKAN FILE LOKAL
+      final localFile = _getLocalFile(type);
+      if (localFile != null && await localFile.exists()) {
+        _showImagePreview(localFile, documentName);
+        return;
+      }
+    }
+    
+    // ✅ JIKA TIDAK ADA FILE LOKAL
+    _showSafeSnackBar('Tidak ada file $documentName di perangkat. Silakan upload ulang.', isError: true);
+    
+  } catch (e) {
+    print('❌ Error viewing local document: $e');
+    _showSafeSnackBar('Gagal membuka $documentName: $e', isError: true);
+  }
+}
+
+// ✅ METHOD: GET LOCAL FILE BERDASARKAN TYPE
+File? _getLocalFile(String type) {
+  switch (type) {
+    case 'ktp':
+      return _storageService.ktpFile;
+    case 'kk':
+      return _storageService.kkFile;
+    case 'diri':
+      return _storageService.diriFile;
+    case 'bukti':
+      return _storageService.buktiPembayaranFile;
+    default:
+      return null;
+  }
+}
+
+// ✅ PERBAIKAN: PREVIEW IMAGE DARI SERVER
+void _showServerImagePreview(String imageUrl, String title) {
+  showDialog(
+    context: context,
+    builder: (context) => Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.all(20),
+      child: Stack(
+        children: [
+          // BACKGROUND OVERLAY
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.8),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // TITLE
+                Text(
+                  '$title (Server)',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Dari: ${_shortenUrl(imageUrl)}',
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                
+                // IMAGE CONTAINER
+                Container(
+                  width: double.infinity,
+                  height: 400,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.white30),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.network(
+                      imageUrl,
+                      fit: BoxFit.contain,
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return Container(
+                          color: Colors.grey[800],
+                          child: Center(
+                            child: CircularProgressIndicator(
+                              value: loadingProgress.expectedTotalBytes != null
+                                  ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                                  : null,
+                            ),
+                          ),
+                        );
+                      },
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          color: Colors.grey[800],
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.error_outline, color: Colors.red, size: 48),
+                              const SizedBox(height: 8),
+                              const Text(
+                                'Gagal memuat gambar dari server',
+                                style: TextStyle(color: Colors.white),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'URL: ${_shortenUrl(imageUrl)}',
+                                style: const TextStyle(color: Colors.white60, fontSize: 10),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                
+                // ACTION BUTTONS
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // CLOSE BUTTON
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.close, color: Colors.white),
+                        label: const Text('Tutup', style: TextStyle(color: Colors.white)),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Colors.white),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    
+                    // REFRESH BUTTON
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _viewDocument(_getTypeFromTitle(title), title);
+                        },
+                        icon: const Icon(Icons.refresh, size: 18),
+                        label: const Text('Refresh'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          
+          // CLOSE BUTTON (TOP RIGHT)
+          Positioned(
+            top: 10,
+            right: 10,
+            child: CircleAvatar(
+              backgroundColor: Colors.black54,
+              radius: 16,
+              child: IconButton(
+                icon: const Icon(Icons.close, color: Colors.white, size: 18),
+                onPressed: () => Navigator.pop(context),
+                padding: EdgeInsets.zero,
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+String _getTypeFromTitle(String title) {
+  if (title.toLowerCase().contains('ktp')) return 'ktp';
+  if (title.toLowerCase().contains('kartu keluarga')) return 'kk';
+  if (title.toLowerCase().contains('foto diri')) return 'diri';
+  if (title.toLowerCase().contains('bukti')) return 'bukti';
+  return '';
+}
+
   // ✅ PERBAIKAN: SAFE SNACKBAR DENGAN MOUNTED CHECK
   void _showSafeSnackBar(String message, {bool isError = false, int duration = 3}) {
     if (!mounted) {
@@ -926,206 +1349,237 @@ void _showVerificationDialog() {
   }
 
   // ✅ BUILD DOKUMEN CARD dengan status dari TemporaryStorage + Server
-  Widget _buildDokumenCard({
-    required String type,
-    required String title,
-    required String description,
-    required IconData icon,
-    required Color color,
-  }) {
-    final fileInfo = _storageService.getFileInfo(type);
-    final hasLocalFile = fileInfo['exists'] == true;
-    final isUploading = _storageService.isUploading;
-    
-    // ✅ CEK STATUS UPLOAD KE SERVER
-    final isUploadedToServer = _isDocumentUploadedToServer(type);
-    final serverUrl = _getDocumentServerUrl(type);
+// ✅ PERBAIKAN: BUILD DOKUMEN CARD - TOMBOL LIHAT HANYA UNTUK FILE LOKAL
+Widget _buildDokumenCard({
+  required String type,
+  required String title,
+  required String description,
+  required IconData icon,
+  required Color color,
+}) {
+  final fileInfo = _storageService.getFileInfo(type);
+  final hasLocalFile = fileInfo['exists'] == true;
+  final isUploading = _storageService.isUploading;
+  
+  // ✅ CEK STATUS UPLOAD KE SERVER (Hanya untuk info status)
+  final isUploadedToServer = _isDocumentUploadedToServer(type);
+  final serverUrl = _getDocumentServerUrl(type);
 
-    print('🎨 Building $type card - Server: $isUploadedToServer, Local: $hasLocalFile');
+  print('🎨 Building $type card - Server: $isUploadedToServer, Local: $hasLocalFile');
 
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(icon, color: color, size: 24),
+  // ✅ TOMBOL LIHAT HANYA MUNCUL JIKA ADA FILE LOKAL
+  final canViewFile = hasLocalFile; // ← HANYA LOKAL, TIDAK CEK SERVER
+
+  return Card(
+    elevation: 2,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    child: Padding(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          // ICON
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
+            child: Icon(icon, color: color, size: 24),
+          ),
+          const SizedBox(width: 12),
+          
+          // CONTENT
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    description,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[600],
-                      height: 1.4,
-                    ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  description,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[600],
+                    height: 1.4,
                   ),
-                  const SizedBox(height: 6),
-                  
-                  // ✅ STATUS INDICATOR (PRIORITAS SERVER STATUS)
-                  if (isUploadedToServer) ...[
-                    Row(
-                      children: [
-                        Icon(Icons.cloud_done, color: Colors.green, size: 14),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Terverifikasi di Server',
-                          style: TextStyle(
-                            color: Colors.green,
-                            fontWeight: FontWeight.w500,
-                            fontSize: 11,
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (serverUrl != null) ...[
-                      const SizedBox(height: 2),
+                ),
+                const SizedBox(height: 6),
+                
+                // ✅ STATUS INDICATOR (Tetap tampilkan status server)
+                if (isUploadedToServer) ...[
+                  Row(
+                    children: [
+                      Icon(Icons.cloud_done, color: Colors.green, size: 14),
+                      const SizedBox(width: 4),
                       Text(
-                        'URL: ${_shortenUrl(serverUrl)}',
+                        'Terverifikasi di Server',
                         style: TextStyle(
-                          color: Colors.green[600],
-                          fontSize: 9,
-                          fontStyle: FontStyle.italic,
+                          color: Colors.green,
+                          fontWeight: FontWeight.w500,
+                          fontSize: 11,
                         ),
-                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
-                  ] else if (hasLocalFile) ...[
-                    Row(
-                      children: [
-                        Icon(Icons.pending, color: Colors.orange, size: 14),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Menunggu Upload',
-                          style: TextStyle(
-                            color: Colors.orange,
-                            fontWeight: FontWeight.w500,
-                            fontSize: 11,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          '${(fileInfo['size'] / 1024).toStringAsFixed(1)} KB',
-                          style: TextStyle(
-                            color: Colors.grey[600],
-                            fontSize: 10,
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (fileInfo['filename'] != null) ...[
-                      const SizedBox(height: 2),
+                  ),
+                ] else if (hasLocalFile) ...[
+                  Row(
+                    children: [
+                      Icon(Icons.pending, color: Colors.orange, size: 14),
+                      const SizedBox(width: 4),
                       Text(
-                        fileInfo['filename'],
+                        'Menunggu Upload',
                         style: TextStyle(
-                          color: Colors.grey[500],
+                          color: Colors.orange,
+                          fontWeight: FontWeight.w500,
+                          fontSize: 11,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '${(fileInfo['size'] / 1024).toStringAsFixed(1)} KB',
+                        style: TextStyle(
+                          color: Colors.grey[600],
                           fontSize: 10,
-                          fontStyle: FontStyle.italic,
                         ),
-                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
-                  ] else ...[
-                    Row(
-                      children: [
-                        Icon(Icons.warning, color: Colors.red, size: 14),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Belum Diupload',
-                          style: TextStyle(
-                            color: Colors.red,
-                            fontWeight: FontWeight.w500,
-                            fontSize: 11,
-                          ),
-                        ),
-                      ],
+                  ),
+                  if (fileInfo['filename'] != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      fileInfo['filename'],
+                      style: TextStyle(
+                        color: Colors.grey[500],
+                        fontSize: 10,
+                        fontStyle: FontStyle.italic,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
+                ] else ...[
+                  Row(
+                    children: [
+                      Icon(Icons.warning, color: Colors.red, size: 14),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Belum Diupload',
+                        style: TextStyle(
+                          color: Colors.red,
+                          fontWeight: FontWeight.w500,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
-              ),
+              ],
             ),
-            Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // UPLOAD/GANTI BUTTON
+          ),
+          
+          // BUTTONS COLUMN
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // UPLOAD/GANTI BUTTON
+              SizedBox(
+                width: 80,
+                height: 36,
+                child: ElevatedButton(
+                  onPressed: isUploading ? null : () => _showImageSourceDialog(type, title),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: isUploadedToServer ? Colors.green : 
+                                  hasLocalFile ? Colors.orange : color,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                  ),
+                  child: isUploading
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : Text(
+                          isUploadedToServer ? '✓ Verified' : 
+                          hasLocalFile ? 'Upload' : 'Pilih',
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                ),
+              ),
+              
+              const SizedBox(height: 4),
+              
+              // ✅ TOMBOL LIHAT FOTO (HANYA JIKA ADA FILE LOKAL)
+              if (canViewFile) ...[
                 SizedBox(
                   width: 80,
-                  height: 36,
-                  child: ElevatedButton(
-                    onPressed: isUploading ? null : () => _showImageSourceDialog(type, title),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: isUploadedToServer ? Colors.green : 
-                                    hasLocalFile ? Colors.orange : color,
-                      foregroundColor: Colors.white,
+                  height: 28,
+                  child: OutlinedButton(
+                    onPressed: isUploading ? null : () => _viewDocument(type, title),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.blue,
+                      side: const BorderSide(color: Colors.blue),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(6),
                       ),
                       padding: const EdgeInsets.symmetric(horizontal: 8),
                     ),
-                    child: isUploading
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : Text(
-                            isUploadedToServer ? '✓ Verified' : 
-                            hasLocalFile ? 'Upload' : 'Pilih',
-                            style: const TextStyle(fontSize: 12),
-                          ),
-                  ),
-                ),
-                if (hasLocalFile && !isUploadedToServer) ...[
-                  const SizedBox(height: 4),
-                  SizedBox(
-                    width: 80,
-                    height: 28,
-                    child: OutlinedButton(
-                      onPressed: isUploading ? null : () => _clearFile(type, title),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.red,
-                        side: const BorderSide(color: Colors.red),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(6),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.visibility, size: 12),
+                        SizedBox(width: 2),
+                        Text(
+                          'Lihat',
+                          style: TextStyle(fontSize: 10),
                         ),
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                      ),
-                      child: const Text(
-                        'Hapus',
-                        style: TextStyle(fontSize: 10),
-                      ),
+                      ],
                     ),
                   ),
-                ],
+                ),
+                const SizedBox(height: 4),
               ],
-            ),
-          ],
-        ),
+              
+              // HAPUS BUTTON (HANYA JIKA ADA FILE LOKAL DAN BELUM DI SERVER)
+              if (hasLocalFile && !isUploadedToServer) ...[
+                SizedBox(
+                  width: 80,
+                  height: 28,
+                  child: OutlinedButton(
+                    onPressed: isUploading ? null : () => _clearFile(type, title),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.red,
+                      side: const BorderSide(color: Colors.red),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                    ),
+                    child: const Text(
+                      'Hapus',
+                      style: TextStyle(fontSize: 10),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   // ✅ PERBAIKAN: BUILD UPLOAD MANUAL SECTION DENGAN STATUS VERIFIKASI
   Widget _buildUploadManualSection() {
@@ -1691,7 +2145,7 @@ void _showVerificationDialog() {
                     _buildDokumenCard(
                       type: 'bukti',
                       title: 'Bukti Pembayaran',
-                      description: 'Upload bukti pembayaran yang valid\n• Nama jelas terbaca\n• Nominal pembayaran terlihat\n• Tanggal pembayaran jelas\n• Format JPG/PNG (max 5MB)',
+                      description: 'Foto bukti transfer sebesar Rp. 125.000,-\n• Untuk Simpanan Pokok (SIMPOK) ke\n• Bank Syariah Indonesia(BSI)\n• No Rekening: 333-667-66667\n•An. Koperasi Syirkah Muslim Indonesia',
                       icon: Icons.receipt,
                       color: Colors.purple,
                     ),

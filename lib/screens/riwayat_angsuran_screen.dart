@@ -1074,7 +1074,7 @@ Widget build(BuildContext context) {
                                           crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
                                             Text(
-                                              'ke-$ke',
+                                              'ke Angsuran',
                                               style: const TextStyle(
                                                 fontWeight: FontWeight.bold,
                                                 fontSize: 16,

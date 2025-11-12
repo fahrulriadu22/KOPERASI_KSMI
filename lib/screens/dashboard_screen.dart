@@ -922,7 +922,6 @@ void _showNotificationPopup() {
                   Expanded(
                     child: _buildNotificationContent(),
                   ),
-// Footer
 Container(
   padding: const EdgeInsets.all(12),
   decoration: BoxDecoration(
@@ -933,11 +932,14 @@ Container(
   child: Row(
     mainAxisAlignment: MainAxisAlignment.spaceBetween,
     children: [
-      // TAMBAHKAN TOMBOL HAPUS SEMUA
+      // TOMBOL HAPUS SEMUA - PERBAIKAN: TUTUP POPUP DULU SEBELUM KONFIRMASI
       TextButton(
         onPressed: () {
-          _deleteAllNotifications();
+          // ✅ TUTUP POPUP DULU, BARU TAMPILKAN KONFIRMASI
           _closeNotificationPopup();
+          Future.delayed(const Duration(milliseconds: 300), () {
+            _deleteAllNotifications();
+          });
         },
         child: const Text(
           'Hapus Semua',
@@ -1343,6 +1345,7 @@ Widget _buildNotificationContent() {
 }
 
 // ✅ BUILD REAL NOTIFICATION ITEM DENGAN OPTION HAPUS
+// ✅ PERBAIKAN: BUILD REAL NOTIFICATION ITEM DENGAN TOMBOL HAPUS YANG BENAR
 Widget _buildRealNotificationItem(Map<String, dynamic> item) {
   final icon = _getNotificationIcon(item['subject']?.toString() ?? '');
   final isUnread = item['isUnread'] == true;
@@ -1404,10 +1407,15 @@ Widget _buildRealNotificationItem(Map<String, dynamic> item) {
               ),
             ),
           const SizedBox(width: 8),
-          // Tombol hapus
+          // Tombol hapus - PERBAIKAN: TUTUP POPUP DULU
           IconButton(
             icon: Icon(Icons.delete_outline, size: 18, color: Colors.grey[500]),
-            onPressed: () => _deleteNotification(notificationId),
+            onPressed: () {
+              _closeNotificationPopup(); // Tutup popup notifikasi
+              Future.delayed(const Duration(milliseconds: 300), () {
+                _deleteNotification(notificationId); // Tampilkan konfirmasi
+              });
+            },
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
             tooltip: 'Hapus notifikasi',
@@ -2435,12 +2443,18 @@ void _testAndroidSystemMultiple() async {
   }
 }
 
-// ✅ METHOD UNTUK HAPUS NOTIFIKASI TUNGGAL
+// ✅ PERBAIKAN: METHOD UNTUK HAPUS NOTIFIKASI TUNGGAL DENGAN KONFIRMASI DI ATAS POPUP
 void _deleteNotification(String notificationId) async {
   try {
     print('🗑️ Deleting notification: $notificationId');
     
-    // Tampilkan konfirmasi hapus
+    // ✅ TUTUP POPUP NOTIFIKASI TERLEBIH DAHULU
+    _closeNotificationPopup();
+    
+    // ✅ TUNGGU SEHINGGA POPUP BENAR-BENAR TERTUTUP
+    await Future.delayed(const Duration(milliseconds: 300));
+    
+    // ✅ TAMPILKAN KONFIRMASI HAPUS DI ATAS LAYAR UTAMA
     bool confirm = await showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -2461,14 +2475,26 @@ void _deleteNotification(String notificationId) async {
 
     if (!confirm) return;
 
+    // ✅ TAMPILKAN LOADING DI ATAS LAYAR UTAMA
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(),
+      ),
+    );
+
     // Panggil API untuk hapus notifikasi
     final result = await _apiService.deleteNotification(notificationId);
+    
+    // ✅ TUTUP LOADING
+    if (mounted) Navigator.of(context).pop();
     
     if (result['success'] == true) {
       // Refresh data notifikasi
       _loadUnreadNotifications();
       
-      // Tampilkan snackbar sukses
+      // ✅ TAMPILKAN SNACKBAR DI ATAS LAYAR UTAMA
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -2478,16 +2504,14 @@ void _deleteNotification(String notificationId) async {
           ),
         );
       }
-      
-      // Jika popup notifikasi sedang terbuka, refresh juga
-      if (_isNotificationPopupOpen) {
-        setState(() {});
-      }
     } else {
       throw Exception(result['message'] ?? 'Gagal menghapus notifikasi');
     }
   } catch (e) {
     print('❌ Error deleting notification: $e');
+    
+    // ✅ TUTUP LOADING JIKA MASIH TERBUKA
+    if (mounted) Navigator.of(context).pop();
     
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -2501,10 +2525,16 @@ void _deleteNotification(String notificationId) async {
   }
 }
 
-// ✅ METHOD UNTUK HAPUS SEMUA NOTIFIKASI
+// ✅ PERBAIKAN: METHOD UNTUK HAPUS SEMUA NOTIFIKASI DENGAN KONFIRMASI DI ATAS POPUP
 void _deleteAllNotifications() async {
   try {
-    // Tampilkan konfirmasi hapus semua
+    // ✅ TUTUP POPUP NOTIFIKASI TERLEBIH DAHULU
+    _closeNotificationPopup();
+    
+    // ✅ TUNGGU SEHINGGA POPUP BENAR-BENAR TERTUTUP
+    await Future.delayed(const Duration(milliseconds: 300));
+    
+    // Tampilkan konfirmasi hapus semua DI ATAS LAYAR UTAMA
     bool confirm = await showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -2525,7 +2555,7 @@ void _deleteAllNotifications() async {
 
     if (!confirm) return;
 
-    // Tampilkan loading
+    // Tampilkan loading DI ATAS LAYAR UTAMA
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -2548,7 +2578,7 @@ void _deleteAllNotifications() async {
         });
       }
       
-      // Tampilkan snackbar sukses
+      // ✅ TAMPILKAN SNACKBAR DI ATAS LAYAR UTAMA
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -2557,11 +2587,6 @@ void _deleteAllNotifications() async {
             duration: Duration(seconds: 3),
           ),
         );
-      }
-      
-      // Tutup popup notifikasi jika terbuka
-      if (_isNotificationPopupOpen) {
-        _closeNotificationPopup();
       }
     } else {
       throw Exception(result['message'] ?? 'Gagal menghapus semua notifikasi');
@@ -2585,6 +2610,7 @@ void _deleteAllNotifications() async {
 }
 
 // ✅ METHOD UNTUK SHOW NOTIFICATION OPTIONS (LONG PRESS)
+// ✅ PERBAIKAN: SHOW NOTIFICATION OPTIONS DENGAN LOGIC YANG BENAR
 void _showNotificationOptions(BuildContext context, String notificationId, Map<String, dynamic> item) {
   showModalBottomSheet(
     context: context,
@@ -2597,8 +2623,11 @@ void _showNotificationOptions(BuildContext context, String notificationId, Map<S
             leading: const Icon(Icons.delete, color: Colors.red),
             title: const Text('Hapus Notifikasi'),
             onTap: () {
-              Navigator.pop(context);
-              _deleteNotification(notificationId);
+              Navigator.pop(context); // Tutup bottom sheet
+              _closeNotificationPopup(); // Tutup popup notifikasi
+              Future.delayed(const Duration(milliseconds: 300), () {
+                _deleteNotification(notificationId); // Tampilkan konfirmasi
+              });
             },
           ),
           ListTile(

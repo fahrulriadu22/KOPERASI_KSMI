@@ -10,7 +10,6 @@ import 'screens/aktivasi_berhasil_screen.dart';
 import 'services/api_service.dart';
 import 'services/firebase_service.dart';
 import 'package:workmanager/workmanager.dart';
-import 'screens/auth_wrapper.dart';
 import 'screens/profile_screen.dart';
 
 // Global keys
@@ -370,71 +369,12 @@ class _KoperasiKSMIAppState extends State<KoperasiKSMIApp> with WidgetsBindingOb
     
     _subscribeToUserTopics(userData);
     
-    // ✅ CEK APAKAH USER SUDAH MELAKUKAN AKTIVASI
-    _checkUserActivationStatus(userData);
-  }
-
-  void _checkUserActivationStatus(Map<String, dynamic> userData) {
-    final statusUser = userData['status_user']?.toString() ?? '0';
-    final isVerified = statusUser == '1';
-    
-    print('🎯 Post-Login Status Check: $statusUser → Verified: $isVerified');
-    
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && navigatorKey.currentState?.context != null) {
-        if (isVerified) {
-          print('📱 Redirecting to Dashboard (Verified User)');
-          navigatorKey.currentState!.pushAndRemoveUntil(
-            MaterialPageRoute(
-              builder: (context) => DashboardMain(user: userData),
-            ),
-            (route) => false,
-          );
-        } else {
-          // ✅ CEK APAKAH SUDAH UPLOAD DOKUMEN
-          _checkDocumentUploadStatus(userData);
-        }
-      }
-    });
-  }
-
-  void _checkDocumentUploadStatus(Map<String, dynamic> userData) {
-    final fotoKtp = userData['foto_ktp']?.toString() ?? '';
-    final fotoKk = userData['foto_kk']?.toString() ?? '';
-    final fotoDiri = userData['foto_diri']?.toString() ?? '';
-    final fotoBukti = userData['foto_bukti']?.toString() ?? '';
-    
-    final hasUploadedDocuments = fotoKtp.isNotEmpty && 
-                                fotoKk.isNotEmpty && 
-                                fotoDiri.isNotEmpty && 
-                                fotoBukti.isNotEmpty;
-    
-    print('📄 Document Upload Status:');
-    print('   - KTP: ${fotoKtp.isNotEmpty}');
-    print('   - KK: ${fotoKk.isNotEmpty}');
-    print('   - Foto Diri: ${fotoDiri.isNotEmpty}');
-    print('   - Bukti: ${fotoBukti.isNotEmpty}');
-    print('   - All Uploaded: $hasUploadedDocuments');
-    
-    if (hasUploadedDocuments) {
-      // ✅ SUDAH UPLOAD DOKUMEN, LANGSUNG KE PROFILE
-      print('📱 Redirecting to Profile (Documents Uploaded)');
-      navigatorKey.currentState!.pushAndRemoveUntil(
-        MaterialPageRoute(
-          builder: (context) => ProfileScreen(user: userData),
-        ),
-        (route) => false,
-      );
-    } else {
-      // ✅ BELUM UPLOAD DOKUMEN, MULAI PROSES AKTIVASI
-      print('📱 Starting Activation Process (New User)');
-      navigatorKey.currentState!.pushAndRemoveUntil(
-        MaterialPageRoute(
-          builder: (context) => AktivasiAkunScreen(user: userData),
-        ),
-        (route) => false,
-      );
+    // ✅ REFRESH UI UNTUK MENAMPILKAN SCREEN YANG BENAR
+    if (mounted) {
+      setState(() {});
     }
+    
+    print('🎯 Login success handled, UI will refresh automatically');
   }
 
   Future<void> _handleLogout() async {
@@ -468,8 +408,6 @@ class _KoperasiKSMIAppState extends State<KoperasiKSMIApp> with WidgetsBindingOb
         _userData = {};
       });
       
-      _navigateToLogin();
-      
     } catch (e) {
       print('❌ Error during logout: $e');
       setState(() {
@@ -477,26 +415,18 @@ class _KoperasiKSMIAppState extends State<KoperasiKSMIApp> with WidgetsBindingOb
         _isLoggedIn = false;
         _userData = {};
       });
-      _navigateToLogin();
     }
-  }
-
-  void _navigateToLogin() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && navigatorKey.currentState?.context != null) {
-        navigatorKey.currentState!.pushAndRemoveUntil(
-          MaterialPageRoute(
-            builder: (context) => LoginScreen(onLoginSuccess: _handleLoginSuccess),
-          ),
-          (route) => false,
-        );
-      }
-    });
   }
 
   @override
   Widget build(BuildContext context) {
-    print('🏗️ Building app - Loading: $_isLoading, Logged in: $_isLoggedIn');
+    print('''
+🏗️ Building app:
+  - Loading: $_isLoading
+  - Logged in: $_isLoggedIn
+  - User Data: ${_userData.isNotEmpty ? 'Available' : 'Empty'}
+  - User Status: ${_userData['status_user'] ?? 'N/A'}
+''');
     
     return MaterialApp(
       title: 'Koperasi KSMI',
@@ -536,38 +466,81 @@ class _KoperasiKSMIAppState extends State<KoperasiKSMIApp> with WidgetsBindingOb
     );
   }
 
-  // ✅ PERBAIKAN: Method ini harus mengembalikan Widget, bukan void
+  // ✅ FIXED: Return Widget berdasarkan status user - TANPA NAVIGASI
   Widget _buildHomeScreen() {
-    // Panggil method untuk menentukan halaman yang tepat
-    _checkUserActivationStatus(_userData);
+    final statusUser = _userData['status_user']?.toString() ?? '0';
+    final isVerified = statusUser == '1';
     
-    // Sementara kembalikan loading screen atau AuthWrapper
-    // Setelah navigasi selesai, ini akan diganti
-    return const AuthWrapper();
+    // ✅ CEK STATUS DOKUMEN DENGAN VALIDASI YANG LEBIH BAIK
+    final fotoKtp = _userData['foto_ktp']?.toString() ?? '';
+    final fotoKk = _userData['foto_kk']?.toString() ?? '';
+    final fotoDiri = _userData['foto_diri']?.toString() ?? '';
+    final fotoBukti = _userData['foto_bukti']?.toString() ?? '';
+    
+    final hasUploadedDocuments = _isDocumentValid(fotoKtp) && 
+                                _isDocumentValid(fotoKk) && 
+                                _isDocumentValid(fotoDiri) && 
+                                _isDocumentValid(fotoBukti);
+
+    print('''
+🏠 Home Screen Decision:
+  - Status User: $statusUser
+  - Verified: $isVerified
+  - Documents Uploaded: $hasUploadedDocuments
+  - KTP: ${_isDocumentValid(fotoKtp)} ($fotoKtp)
+  - KK: ${_isDocumentValid(fotoKk)} ($fotoKk)
+  - Diri: ${_isDocumentValid(fotoDiri)} ($fotoDiri)
+  - Bukti: ${_isDocumentValid(fotoBukti)} ($fotoBukti)
+''');
+
+    if (isVerified) {
+      print('📱 Returning DashboardMain');
+      return DashboardMain(user: _userData);
+    } else if (hasUploadedDocuments) {
+      print('📱 Returning ProfileScreen (documents uploaded)');
+      return ProfileScreen(user: _userData);
+    } else {
+      print('📱 Returning AktivasiAkunScreen (new user)');
+      return AktivasiAkunScreen(user: _userData);
+    }
   }
 
-ThemeData _buildAppTheme() {
-  return ThemeData(
-    primaryColor: Colors.green[800],
-    primarySwatch: Colors.green,
-    colorScheme: ColorScheme.fromSeed(
-      seedColor: Colors.green[800]!,
-      primary: Colors.green[800]!,
-      secondary: Colors.greenAccent[400]!,
-    ),
-    // HAPUS scaffoldBackgroundColor ← biar default
-    appBarTheme: AppBarTheme(
-      backgroundColor: Colors.green[800],
-      foregroundColor: Colors.white,
-      elevation: 4,
-      titleTextStyle: const TextStyle(
-        fontSize: 18,
-        fontWeight: FontWeight.bold,
-        color: Colors.white,
+  // ✅ HELPER: Validasi dokumen yang lebih akurat
+  bool _isDocumentValid(String documentUrl) {
+    if (documentUrl.isEmpty || 
+        documentUrl == 'null' || 
+        documentUrl == 'uploaded' ||
+        documentUrl.trim().isEmpty) {
+      return false;
+    }
+    
+    // Cek jika mengandung ekstensi gambar
+    return documentUrl.toLowerCase().contains('.jpg') ||
+           documentUrl.toLowerCase().contains('.jpeg') ||
+           documentUrl.toLowerCase().contains('.png');
+  }
+
+  ThemeData _buildAppTheme() {
+    return ThemeData(
+      primaryColor: Colors.green[800],
+      primarySwatch: Colors.green,
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: Colors.green[800]!,
+        primary: Colors.green[800]!,
+        secondary: Colors.greenAccent[400]!,
       ),
-      centerTitle: true,
-      iconTheme: const IconThemeData(color: Colors.white),
-    ),
+      appBarTheme: AppBarTheme(
+        backgroundColor: Colors.green[800],
+        foregroundColor: Colors.white,
+        elevation: 4,
+        titleTextStyle: const TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.bold,
+          color: Colors.white,
+        ),
+        centerTitle: true,
+        iconTheme: const IconThemeData(color: Colors.white),
+      ),
       inputDecorationTheme: InputDecorationTheme(
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),

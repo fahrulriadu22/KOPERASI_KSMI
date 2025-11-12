@@ -4,6 +4,7 @@ import 'dashboard_main.dart';
 import 'register_screen.dart';
 import 'upload_dokumen_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'aktivasi_akun_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   final Function(Map<String, dynamic>)? onLoginSuccess;
@@ -35,28 +36,34 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   // ✅ CEK SESSION EXISTING (Auto-login jika token masih valid)
-  Future<void> _checkExistingSession() async {
-    try {
-      final isLoggedIn = await _apiService.isLoggedIn();
-      if (isLoggedIn) {
-        final tokenValid = await _apiService.validateToken();
-        
-        if (tokenValid && mounted) {
-          final currentUser = await _apiService.getCurrentUserForUpload();
-          if (currentUser != null) {
-            print('🔄 Auto-login detected, redirecting...');
-            _handleSuccessfulLogin(currentUser);
-            return;
-          }
-        } else {
-          // Token expired, clear data
-          await _apiService.logout();
+// ✅ PERBAIKAN: CEK SESSION EXISTING DENGAN NAVIGATION LANGSUNG
+Future<void> _checkExistingSession() async {
+  try {
+    final isLoggedIn = await _apiService.isLoggedIn();
+    if (isLoggedIn) {
+      final tokenValid = await _apiService.validateToken();
+      
+      if (tokenValid && mounted) {
+        final currentUser = await _apiService.getCurrentUserForUpload();
+        if (currentUser != null) {
+          print('🔄 Auto-login detected, redirecting directly...');
+          // ✅ NAVIGATE LANGSUNG TANPA CALLBACK
+          Future.microtask(() {
+            if (mounted) {
+              _checkDokumenStatusAndNavigate(currentUser);
+            }
+          });
+          return;
         }
+      } else {
+        // Token expired, clear data
+        await _apiService.logout();
       }
-    } catch (e) {
-      print('❌ Error checking existing session: $e');
     }
+  } catch (e) {
+    print('❌ Error checking existing session: $e');
   }
+}
 
   // ✅ FIXED: LOGIN METHOD YANG BENAR
   void _handleLogin() async {
@@ -155,27 +162,34 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+// ✅ PERBAIKAN TOTAL: HAPUS CALLBACK, SELALU NAVIGATE LANGSUNG
 void _handleSuccessfulLogin(Map<String, dynamic> user) {
   try {
     final statusUser = user['status_user']?.toString() ?? '0';
-    // ✅ DEBUG: Tampilkan status user
-    print('🎉 LOGIN SUCCESS - User Status: ${user['status_user']}');
+    
+    print('🎉 LOGIN SUCCESS - User Status: $statusUser');
     print('🎉 LOGIN SUCCESS - User ID: ${user['user_id']}');
 
     _saveAuthStatus(statusUser);
     
-    // ✅ PERBAIKAN: CEK APAKAH ADA CALLBACK onLoginSuccess
-    if (widget.onLoginSuccess != null) {
-      print('🎉 Using callback for login success');
-      widget.onLoginSuccess!(user);
-    } else {
-      print('🎉 Handling navigation directly from login screen');
-      _checkDokumenStatusAndNavigate(user);
-    }
+    // ✅ HAPUS CALLBACK SYSTEM, SELALU NAVIGATE LANGSUNG
+    print('🎉 Navigating directly from login screen');
+    
+    // ✅ GUNAKAN Future.microtask UNTUK MEMASTIKAN BUILD CYCLE SELESAI
+    Future.microtask(() {
+      if (mounted) {
+        _checkDokumenStatusAndNavigate(user);
+      }
+    });
+    
   } catch (e) {
     print('❌ Error in successful login handling: $e');
-    // Fallback navigation
-    _navigateToDashboard(user);
+    // ✅ FALLBACK: Navigate ke upload dokumen
+    Future.microtask(() {
+      if (mounted) {
+        _navigateToUploadDokumen(user);
+      }
+    });
   }
 }
 
@@ -191,42 +205,47 @@ Future<void> _saveAuthStatus(String statusUser) async {
 }
 
 
-// ✅ FIX: CEK STATUS USER DAN NAVIGASI YANG BENAR
+// ✅ PERBAIKAN: NAVIGATION YANG BENAR UNTUK STATUS 0 -> AKTIVASI AKUN
 void _checkDokumenStatusAndNavigate(Map<String, dynamic> user) {
   try {
     final userStatus = user['status_user'] ?? user['status'] ?? 0;
-    final dokumenStatus = _getDokumenStatus(user);
     
     print('''
 👤 User Status Check:
   - Status User: $userStatus (${userStatus.runtimeType})
-  - All Documents Uploaded: ${dokumenStatus['allComplete']}
-📄 Document Status:
-  - KTP: ${dokumenStatus['ktp']}
-  - KK: ${dokumenStatus['kk']}  
-  - Foto Diri: ${dokumenStatus['diri']}
-  - Foto Bukti: ${dokumenStatus['bukti']}
 ''');
     
     // ✅ FIX: LOGIC YANG BENAR UNTUK STATUS_USER
     if (userStatus == 0 || userStatus == '0') {
-      // ✅ STATUS 0 = MENUNGGU VERIFIKASI ADMIN -> Upload Dokumen
-      print('📱 Status 0: Menunggu verifikasi, navigating to UploadDokumenScreen');
-      _navigateToUploadDokumen(user);
+      // ✅ STATUS 0 = MENUNGGU VERIFIKASI ADMIN -> Aktivasi Akun (BUKAN Upload Dokumen)
+      print('📱 Status 0: Menunggu verifikasi, navigating to AktivasiAkunScreen');
+      _navigateToAktivasiAkun(user);
     } else if (userStatus == 1 || userStatus == '1') {
       // ✅ STATUS 1 = SUDAH VERIFIED -> Dashboard
       print('📱 Status 1: Sudah verified, navigating to Dashboard');
       _navigateToDashboard(user);
     } else {
-      // ✅ FALLBACK: Default ke UploadDokumenScreen untuk safety
-      print('📱 Status unknown ($userStatus), default to UploadDokumenScreen');
-      _navigateToUploadDokumen(user);
+      // ✅ FALLBACK: Default ke Aktivasi Akun untuk safety
+      print('📱 Status unknown ($userStatus), default to AktivasiAkunScreen');
+      _navigateToAktivasiAkun(user);
     }
   } catch (e) {
     print('❌ Error in user status check navigation: $e');
-    // Fallback ke upload dokumen jika ada error
-    _navigateToUploadDokumen(user);
+    // Fallback ke aktivasi akun jika ada error
+    _navigateToAktivasiAkun(user);
   }
+}
+
+// ✅ METHOD BARU: NAVIGATE KE AKTIVASI AKUN SCREEN
+void _navigateToAktivasiAkun(Map<String, dynamic> user) {
+  print('🚀 Navigating to AktivasiAkunScreen');
+  
+  Navigator.of(context).pushAndRemoveUntil(
+    MaterialPageRoute(
+      builder: (_) => AktivasiAkunScreen(user: user), // ← GANTI DENGAN SCREEN YANG BENAR
+    ),
+    (route) => false,
+  );
 }
 
 // ✅ FIX: CEK STATUS DOKUMEN YANG LEBIH AKURAT
@@ -283,28 +302,32 @@ Map<String, dynamic> _getDokumenStatus(Map<String, dynamic> user) {
   };
 }
 
-  // ✅ NAVIGATION METHODS
-  void _navigateToUploadDokumen(Map<String, dynamic> user) {
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(
-        builder: (_) => UploadDokumenScreen(
-          user: user,
-          onDocumentsComplete: () {
-            // Callback ketika dokumen selesai diupload
-            _navigateToDashboard(user);
-          },
-        ),
+// ✅ PERBAIKAN: NAVIGATION METHODS YANG SIMPLE DAN WORKING
+void _navigateToUploadDokumen(Map<String, dynamic> user) {
+  print('🚀 Navigating to UploadDokumenScreen');
+  
+  Navigator.of(context).pushAndRemoveUntil(
+    MaterialPageRoute(
+      builder: (_) => UploadDokumenScreen(
+        user: user,
+        onDocumentsComplete: () {
+          print('📄 Documents completed, navigating to dashboard');
+          _navigateToDashboard(user);
+        },
       ),
-      (route) => false,
-    );
-  }
+    ),
+    (route) => false,
+  );
+}
 
-  void _navigateToDashboard(Map<String, dynamic> user) {
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => DashboardMain(user: user)),
-      (route) => false,
-    );
-  }
+void _navigateToDashboard(Map<String, dynamic> user) {
+  print('🚀 Navigating to DashboardMain');
+  
+  Navigator.of(context).pushAndRemoveUntil(
+    MaterialPageRoute(builder: (_) => DashboardMain(user: user)),
+    (route) => false,
+  );
+}
 
   // ✅ TEST LOGIN FUNCTION (untuk debugging)
   void _testLogin() async {
