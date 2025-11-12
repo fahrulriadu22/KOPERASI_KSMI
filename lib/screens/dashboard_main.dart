@@ -625,22 +625,25 @@ Widget _buildMainScreen() {
   ];
 
   return Scaffold(
-    backgroundColor: Colors.transparent, // ← BACKGROUND TRANSPARAN
-    extendBody: true, // ← PENTING!
-    body: Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient( // ← OPSIONAL: kasih gradient biar ga polos
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Colors.green, Colors.greenAccent],
+    backgroundColor: Colors.transparent,
+    extendBody: true, // ← PENTING! UNTUK EXTEND BACKGROUND
+    body: SafeArea( // ← TAMBAHKIN SAFE AREA DI BODY
+      bottom: false, // ← FALSE KARENA BOTTOM NAV SUDAH HANDLE SENDIRI
+      child: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Colors.green, Colors.greenAccent],
+          ),
+        ),
+        child: IndexedStack(
+          index: _selectedIndex,
+          children: pages,
         ),
       ),
-      child: IndexedStack(
-        index: _selectedIndex,
-        children: pages,
-      ),
     ),
-    bottomNavigationBar: _buildWebAndLinuxBottomNav(),
+    bottomNavigationBar: _buildPlatformSpecificBottomNav(), // ← GUNAKAN PLATFORM SPECIFIC
   );
 }
 
@@ -692,8 +695,11 @@ Widget _buildUniversalBottomNav() {
 }
 
 Widget _buildWebAndLinuxBottomNav() {
+  final padding = MediaQuery.of(context).padding;
+  final bottomPadding = padding.bottom;
+
   return Container(
-    height: 70,
+    height: 70 + bottomPadding, // ← TAMBAHKAN BOTTOM PADDING
     decoration: BoxDecoration(
       color: Colors.green[700],
       borderRadius: const BorderRadius.only(
@@ -708,32 +714,45 @@ Widget _buildWebAndLinuxBottomNav() {
         ),
       ],
     ),
-    child: Row(
-      mainAxisAlignment: MainAxisAlignment.spaceAround, // ← KEMBALI KE INI
+    child: Column(
       children: [
-        _buildNavItem(
-          icon: Icons.home_rounded,
-          label: 'Beranda',
-          index: 0,
-          platform: 'web_linux',
+        // CONTENT AREA
+        Expanded(
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildNavItem(
+                icon: Icons.home_rounded,
+                label: 'Beranda',
+                index: 0,
+                platform: 'web_linux',
+              ),
+              _buildNavItem(
+                icon: Icons.savings_rounded,
+                label: 'Tabungan',
+                index: 1,
+                platform: 'web_linux',
+              ),
+              _buildNavItem(
+                icon: Icons.payments_rounded,
+                label: 'Taqsith',
+                index: 2,
+                platform: 'web_linux',
+              ),
+              _buildNavItem(
+                icon: Icons.person_rounded,
+                label: 'Profil',
+                index: 3,
+                platform: 'web_linux',
+              ),
+            ],
+          ),
         ),
-        _buildNavItem(
-          icon: Icons.savings_rounded,
-          label: 'Tabungan',
-          index: 1,
-          platform: 'web_linux',
-        ),
-        _buildNavItem(
-          icon: Icons.payments_rounded,
-          label: 'Taqsith',
-          index: 2,
-          platform: 'web_linux',
-        ),
-        _buildNavItem(
-          icon: Icons.person_rounded,
-          label: 'Profil',
-          index: 3,
-          platform: 'web_linux',
+        
+        // SAFE AREA FILLER
+        Container(
+          height: bottomPadding,
+          color: Colors.green[700],
         ),
       ],
     ),
@@ -747,17 +766,22 @@ Widget _buildAndroidBottomNav() {
   return Container(
     margin: EdgeInsets.zero,
     padding: EdgeInsets.zero,
-    width: double.infinity, // ← PASTIKAN INI
-    height: 68 + bottomPadding,
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
+    width: double.infinity,
+    height: 68 + bottomPadding, // ← TINGGI TOTAL DENGAN SAFE AREA
+    child: Stack(
       children: [
-        // BACKGROUND UTAMA YANG MENGISI LEBAR PENUH
+        // BACKGROUND UTAMA (TANPA SAFE AREA)
         Container(
-          width: double.infinity, // ← INI YANG PENTING
-          height: 68,
-          color: Colors.green[700], // ← BACKGROUND WARNA FULL DULU
-          child: ClipPath( // ← CLIP PATH UNTUK SHAPE
+          width: double.infinity,
+          height: 68, // ← TINGGI FIXED UNTUK CONTENT
+          decoration: BoxDecoration(
+            color: Colors.green[700],
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(20),
+              topRight: Radius.circular(20),
+            ),
+          ),
+          child: ClipPath(
             clipper: _BottomNavClipper(),
             child: Container(
               color: Colors.green[700],
@@ -792,11 +816,16 @@ Widget _buildAndroidBottomNav() {
             ),
           ),
         ),
-        // SAFE AREA
-        Container(
-          height: bottomPadding,
-          width: double.infinity,
-          color: Colors.green[700],
+        
+        // SAFE AREA FILLER (DI BAWAH BACKGROUND)
+        Positioned(
+          bottom: 0,
+          left: 0,
+          right: 0,
+          child: Container(
+            height: bottomPadding,
+            color: Colors.green[700], // ← WARNA SAMA DENGAN BACKGROUND
+          ),
         ),
       ],
     ),
