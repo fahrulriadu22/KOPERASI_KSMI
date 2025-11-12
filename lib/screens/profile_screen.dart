@@ -2134,32 +2134,85 @@ Widget _buildTimelineStep(int step, String title, bool isCompleted, IconData ico
   );
 }
 
-// ✅ METHOD BARU: LOAD PROFILE IMAGE DARI LOCAL
 Widget _buildSafeProfileImage() {
-  // ✅ CEK APAKAH ADA DI LOCAL STORAGE
-  return FutureBuilder<File?>(
-    future: _getLocalProfileImage(),
+  final fotoDiri = _currentUser['foto_diri'];
+  
+  print('🖼️ Building safe profile image: $fotoDiri');
+  
+  // ✅ JIKA TIDAK ADA FOTO, PAKAI PLACEHOLDER
+  if (!_isValidProfileImage(fotoDiri)) {
+    print('❌ Invalid profile image, using placeholder');
+    return _buildProfilePlaceholder();
+  }
+  
+  // ✅ GUNAKAN API UserImage UNTUK LOAD GAMBAR
+  return FutureBuilder<Uint8List?>(
+    future: _apiService.getUserImage(fotoDiri),
     builder: (context, snapshot) {
       if (snapshot.connectionState == ConnectionState.waiting) {
         return _buildImageLoading();
       }
       
+      if (snapshot.hasError) {
+        print('❌ Error loading image: ${snapshot.error}');
+        return _buildProfilePlaceholder();
+      }
+      
       if (snapshot.hasData && snapshot.data != null) {
-        // ✅ GUNAKAN FILE LOKAL
-        final localFile = snapshot.data!;
-        print('✅ Using local profile image: ${localFile.path}');
-        return Image.file(
-          localFile,
+        // ✅ BERHASIL DAPAT GAMBAR DARI API
+        final imageBytes = snapshot.data!;
+        print('✅ Image loaded from API: ${imageBytes.length} bytes');
+        
+        return Image.memory(
+          imageBytes,
           fit: BoxFit.cover,
           width: 100,
           height: 100,
         );
       } else {
-        // ✅ FALLBACK KE PLACEHOLDER
-        return _buildProfilePlaceholder();
+        // ✅ FALLBACK KE NETWORK IMAGE JIKA API GAGAL
+        print('🔄 Fallback to network image');
+        return _buildNetworkImageFallback(fotoDiri);
       }
     },
   );
+}
+
+// ✅ FALLBACK: NETWORK IMAGE JIKA API GAGAL
+Widget _buildNetworkImageFallback(String fotoDiri) {
+  final imageUrl = _buildCorrectImageUrl(fotoDiri);
+  
+  return Image.network(
+    imageUrl,
+    fit: BoxFit.cover,
+    width: 100,
+    height: 100,
+    loadingBuilder: (context, child, loadingProgress) {
+      if (loadingProgress == null) return child;
+      return _buildImageLoading();
+    },
+    errorBuilder: (context, error, stackTrace) {
+      print('❌ Network image also failed: $error');
+      return _buildProfilePlaceholder();
+    },
+  );
+}
+
+// ✅ BUILD CORRECT IMAGE URL UNTUK FALLBACK
+String _buildCorrectImageUrl(String? fotoDiri) {
+  if (fotoDiri == null) return '';
+  
+  // ✅ JIKA SUDAH FULL URL, LANGSUNG PAKAI
+  if (fotoDiri.startsWith('http')) {
+    return '$fotoDiri?t=${DateTime.now().millisecondsSinceEpoch}';
+  }
+  
+  // ✅ GUNAKAN PATH assets/images
+  final baseUrl = 'http://demo.bsdeveloper.id/assets/images/';
+  final encodedFilename = Uri.encodeComponent(fotoDiri);
+  final cacheBuster = DateTime.now().millisecondsSinceEpoch;
+  
+  return '$baseUrl$encodedFilename?t=$cacheBuster';
 }
 
 // ✅ METHOD BARU: GET LOCAL PROFILE IMAGE
@@ -2185,15 +2238,15 @@ Future<File?> _getLocalProfileImage() async {
   }
 }
 
-// ✅ UPDATE DI LocalImageService - PAKAI API UNTUK DOWNLOAD
+// ✅ UPDATE DI LocalImageService
 Future<File?> saveProfileImageFromApi(String filename) async {
   try {
     final apiService = ApiService();
     
-    print('💾 Downloading profile image via API: $filename');
+    print('💾 Downloading profile image via UserImage API: $filename');
     
-    // ✅ DOWNLOAD DARI API DENGAN AUTHENTICATION
-    final imageBytes = await apiService.downloadProfileImage(filename);
+    // ✅ GUNAKAN METHOD BARU getUserImage
+    final imageBytes = await apiService.getUserImage(filename);
     
     if (imageBytes != null && imageBytes.isNotEmpty) {
       // ✅ SIMPAN KE LOCAL STORAGE
@@ -2211,14 +2264,14 @@ Future<File?> saveProfileImageFromApi(String filename) async {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('local_$filename', filePath);
       
-      print('✅ Profile image saved via API: $filePath (${imageBytes.length} bytes)');
+      print('✅ Profile image saved via UserImage API: $filePath (${imageBytes.length} bytes)');
       return file;
     } else {
-      print('❌ No image data received from API');
+      print('❌ No image data received from UserImage API');
       return null;
     }
   } catch (e) {
-    print('❌ Error saving profile image via API: $e');
+    print('❌ Error saving profile image via UserImage API: $e');
     return null;
   }
 }
@@ -2315,7 +2368,6 @@ void _cleanupCorruptedCache(String filename) async {
 
 
 
-// ✅ METHOD BARU: BUILD IMAGE LOADING PLACEHOLDER
 Widget _buildImageLoading() {
   return Container(
     width: 100,
@@ -2350,24 +2402,6 @@ void _downloadAndSaveImageForFuture(String fotoDiri) {
   });
 }
 
-// ✅ FIX: BUILD CORRECT IMAGE URL UNTUK ASSETS/IMAGES
-String _buildCorrectImageUrl(String? fotoDiri) {
-  if (fotoDiri == null) return '';
-  
-  // ✅ JIKA SUDAH FULL URL, LANGSUNG PAKAI
-  if (fotoDiri.startsWith('http')) {
-    return '$fotoDiri?t=${DateTime.now().millisecondsSinceEpoch}';
-  }
-  
-  // ✅ FIX: GUNAKAN PATH assets/images BUKAN upload/foto_diri
-  final baseUrl = 'http://demo.bsdeveloper.id/assets/images/';
-  final encodedFilename = Uri.encodeComponent(fotoDiri);
-  final cacheBuster = DateTime.now().millisecondsSinceEpoch;
-  
-  return '$baseUrl$encodedFilename?t=$cacheBuster';
-}
-
-// ✅ FIX: VALIDASI IMAGE DENGAN CEK URL YANG BENAR
 bool _isValidProfileImage(dynamic fotoDiri) {
   if (fotoDiri == null || 
       fotoDiri.toString().isEmpty || 
@@ -2400,7 +2434,6 @@ bool _isValidProfileImage(dynamic fotoDiri) {
   return hasValidExtension || looksLikeFilename;
 }
 
-// ✅ METHOD BARU: BUILD PROFILE PLACEHOLDER
 Widget _buildProfilePlaceholder() {
   return Container(
     width: 100,

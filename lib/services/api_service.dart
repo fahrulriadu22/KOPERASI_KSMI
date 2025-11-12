@@ -2105,6 +2105,47 @@ Future<Map<String, dynamic>> uploadFourPhotosWithUser({
       };
     }
   }
+
+  // ✅ METHOD BARU: GET IMAGE VIA UserImage API
+Future<Uint8List?> getUserImage(String filename) async {
+  try {
+    final headers = await getProtectedHeaders();
+    
+    print('📥 Getting user image via API: $filename');
+    
+    final response = await http.post(
+      Uri.parse('$baseUrl/users/UserImage'),
+      headers: {
+        ...headers,
+        'Content-Type': 'application/json', // ✅ SESUAI TEST CURL
+      },
+      body: jsonEncode({'filename': filename}),
+    );
+
+    print('📡 UserImage API Response Status: ${response.statusCode}');
+    print('📡 UserImage API Content-Type: ${response.headers['content-type']}');
+    print('📡 UserImage API Content-Length: ${response.headers['content-length']}');
+
+    if (response.statusCode == 200) {
+      final contentType = response.headers['content-type'];
+      
+      // ✅ CEK APAKAH RESPONSE ADALAH GAMBAR
+      if (contentType?.startsWith('image/') == true) {
+        print('✅ Image received successfully: ${response.bodyBytes.length} bytes');
+        return response.bodyBytes;
+      } else {
+        print('❌ Response is not an image: $contentType');
+        return null;
+      }
+    } else {
+      print('❌ UserImage API failed: ${response.statusCode}');
+      return null;
+    }
+  } catch (e) {
+    print('❌ Error getting user image: $e');
+    return null;
+  }
+}
   
   // ✅ METHOD GET USER INFO - SESUAI DENGAN CURL COMMAND
 Future<Map<String, dynamic>> getUserInfo() async {

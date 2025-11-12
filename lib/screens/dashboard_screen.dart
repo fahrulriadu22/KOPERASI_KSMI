@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'dashboard_main.dart';
 import 'riwayat_tabungan_screen.dart';
@@ -52,6 +53,10 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
+  // ✅ TAMBAHKAN INI DI ATAS - STREAM SUBSCRIPTION VARIABLES
+  StreamSubscription? _inboxSubscription;
+  StreamSubscription? _notificationSubscription;
+  StreamSubscription? _unreadCountSubscription;
   // ✅ List menu yang bisa ditampilkan dengan navigation target
   final List<MenuIcon> _allMenuItems = [
     MenuIcon('Pokok', Icons.account_balance, Colors.green, 'pokok', MenuType.tabungan),
@@ -88,31 +93,67 @@ bool _isNotificationPopupOpen = false;
   String _errorMessage = '';
   int _unreadNotifications = 0;
 
-// DI INITSTATE() DASHBOARDSCREEN - TAMBAHKAN:
 @override
 void initState() {
   super.initState();
   _activeMenuItems = List.from(_allMenuItems);
   _loadCurrentUser();
-  _loadDataFromApi();
-  _checkUserStatus();
-  _loadUnreadNotifications();
   
-  // ✅ SETUP NOTIFICATION LISTENER
-  _setupNotificationListener();
-  
-  // ✅ SETUP REAL-TIME STREAMS (TAMBAH INI)
-  _setupRealTimeStreams();
+  WidgetsBinding.instance.addPostFrameCallback((_) async {
+    await Future.delayed(const Duration(milliseconds: 100));
+    
+    if (mounted) {
+      // ✅ PARALLEL LOADING - Semua jalan bersamaan
+      await _loadAllDataParallel();
+      _checkUserStatus();
+      _setupNotificationListener();
+      _setupRealTimeStreams();
+    }
+  });
 }
 
-// ✅ UPDATE DISPOSE() - TAMBAHKAN:
+// ✅ METHOD BARU: LOAD SEMUA DATA PARALLEL
+Future<void> _loadAllDataParallel() async {
+  if (!mounted) return;
+  
+  setState(() { _isLoading = true; });
+
+  try {
+    // ✅ JALANKAN SEMUA API CALL BERSAMAAN
+    await Future.wait([
+      _loadDataFromApi(),           // Saldo + Taqsith
+      _loadUnreadNotifications(),   // Notifications
+    ], eagerError: true);
+    
+  } catch (e) {
+    print('❌ Error parallel loading: $e');
+    if (mounted) {
+      setState(() {
+        _hasError = true;
+        _errorMessage = 'Gagal memuat data: $e';
+      });
+    }
+  } finally {
+    if (mounted) {
+      setState(() { _isLoading = false; });
+    }
+  }
+}
+
 @override
 void dispose() {
   _scrollController.dispose();
   _closeNotificationPopup();
   
-  // ✅ STOP PERIODIC SYNC JIKA PERLU
-  // firebaseService.stopPeriodicSync(); // Opsional
+  // ✅ FIX: CANCEL SEMUA STREAM SUBSCRIPTION
+  _inboxSubscription?.cancel();
+  _notificationSubscription?.cancel();
+  _unreadCountSubscription?.cancel();
+  
+  // ✅ CLEANUP CALLBACKS
+  FirebaseService.onUnreadCountUpdated = null;
+  FirebaseService.onNotificationTap = null; 
+  FirebaseService.onNotificationReceived = null;
   
   super.dispose();
 }
@@ -184,10 +225,14 @@ void _showAccessDeniedDialog() {
     }
   }
 
-  // ✅ TAMBAHKAN METHOD INI:
 void _setupRealTimeStreams() {
+  // ✅ CANCEL EXISTING SUBSCRIPTIONS DULU
+  _inboxSubscription?.cancel();
+  _notificationSubscription?.cancel();
+  _unreadCountSubscription?.cancel();
+
   // Listen untuk real-time unread count updates
-  firebaseService.unreadCountStream.listen((unreadCount) {
+  _unreadCountSubscription = firebaseService.unreadCountStream.listen((unreadCount) {
     print('📱 Real-time unread count: $unreadCount');
     if (mounted) {
       setState(() {
@@ -197,25 +242,29 @@ void _setupRealTimeStreams() {
   });
 
   // Listen untuk real-time notifications
-  firebaseService.notificationStream.listen((notification) {
+  _notificationSubscription = firebaseService.notificationStream.listen((notification) {
     print('📱 Real-time notification received: ${notification['title']}');
-    _showRealTimeNotificationSnackbar(notification);
+    if (mounted) {
+      _showRealTimeNotificationSnackbar(notification);
+    }
   });
 
   // Listen untuk real-time inbox data
-  firebaseService.inboxDataStream.listen((inboxData) {
+  _inboxSubscription = firebaseService.inboxDataStream.listen((inboxData) {
     print('📱 Real-time inbox data updated: ${inboxData.length} items');
     // Bisa refresh popup notifikasi jika sedang terbuka
-    if (_isNotificationPopupOpen) {
+    if (mounted && _isNotificationPopupOpen) {
       setState(() {});
     }
   });
 }
 
-// ✅ TAMBAHKAN METHOD INI:
 void _showRealTimeNotificationSnackbar(Map<String, dynamic> notification) {
   final title = notification['title'] ?? 'KSMI Koperasi';
   final body = notification['body'] ?? 'Pesan baru';
+  
+  // ✅ CEK MOUNTED SEBELUM SHOW SNACKBAR
+  if (!mounted) return;
   
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
@@ -244,7 +293,9 @@ void _showRealTimeNotificationSnackbar(Map<String, dynamic> notification) {
         label: 'Buka',
         textColor: Colors.white,
         onPressed: () {
-          _showNotificationPopup();
+          if (mounted) {
+            _showNotificationPopup();
+          }
         },
       ),
     ),
@@ -258,35 +309,42 @@ void _showRealTimeNotificationSnackbar(Map<String, dynamic> notification) {
   }
 }
 
-  // ✅ PERBAIKAN: LOAD UNREAD NOTIFICATIONS
-  Future<void> _loadUnreadNotifications() async {
-    try {
-      print('📥 Loading unread notifications...');
+// ✅ PERBAIKAN: LOAD UNREAD NOTIFICATIONS
+Future<void> _loadUnreadNotifications() async {
+  try {
+    // ✅ CEK MOUNTED DI AWAL
+    if (!mounted) return;
+    
+    print('📥 Loading unread notifications...');
+    
+    // Gunakan FirebaseService untuk get unread count
+    final unreadCount = await firebaseService.getUnreadNotificationsCount();
+    print('📊 Unread count from FirebaseService: $unreadCount');
+    
+    // ✅ CEK MOUNTED SEBELUM SET STATE
+    if (!mounted) return;
+    
+    setState(() {
+      _unreadNotifications = unreadCount;
+    });
+    
+    // Juga refresh dari API untuk data terbaru
+    final refreshResult = await firebaseService.refreshInboxData();
+    if (refreshResult['success'] == true) {
+      final newUnreadCount = refreshResult['unread_count'] ?? 0;
+      print('🔄 Refreshed unread count: $newUnreadCount');
       
-      // Gunakan FirebaseService untuk get unread count
-      final unreadCount = await firebaseService.getUnreadNotificationsCount();
-      print('📊 Unread count from FirebaseService: $unreadCount');
+      // ✅ CEK MOUNTED SEBELUM SET STATE LAGI
+      if (!mounted) return;
       
-      if (mounted) {
-        setState(() {
-          _unreadNotifications = unreadCount;
-        });
-      }
-      
-      // Juga refresh dari API untuk data terbaru
-      final refreshResult = await firebaseService.refreshInboxData();
-      if (refreshResult['success'] == true && mounted) {
-        final newUnreadCount = refreshResult['unread_count'] ?? 0;
-        print('🔄 Refreshed unread count: $newUnreadCount');
-        
-        setState(() {
-          _unreadNotifications = newUnreadCount;
-        });
-      }
-    } catch (e) {
-      print('❌ Error loading notifications: $e');
+      setState(() {
+        _unreadNotifications = newUnreadCount;
+      });
     }
+  } catch (e) {
+    print('❌ Error loading notifications: $e');
   }
+}
 
   // ✅ SETUP NOTIFICATION LISTENER YANG LEBIH BAIK
   void _setupNotificationListener() {
@@ -533,61 +591,58 @@ void _showRealTimeNotificationSnackbar(Map<String, dynamic> notification) {
     );
   }
 
-// ✅ PERBAIKAN: LOAD DATA DENGAN STRUCTURE YANG SESUAI RIWAYAT_ANGSURAN_SCREEN
+// ✅ PERBAIKAN: LOAD DATA DENGAN PARALLEL + ERROR HANDLING
 Future<void> _loadDataFromApi() async {
-  // ✅ CEK MOUNTED SEBELUM SET STATE
   if (!mounted) return;
   
-  setState(() {
-    _isLoading = true;
-    _hasError = false;
-    _errorMessage = '';
-  });
-
   try {
-    print('🚀 Memulai load data dashboard dengan struktur taqsith...');
+    print('🚀 Memulai load data PARALLEL...');
 
-    // ✅ LOAD DATA SALDO DAN TAQSITH SECARA PARALEL
+    // ✅ LOAD SALDO & TAQSITH BERSAMAAN
     final results = await Future.wait([
-      _apiService.getAllSaldo(), // ✅ GET SALDO YANG SUDAH FIX
+      _apiService.getAllSaldo(),
       _apiService.getAlltaqsith(),
-    ]);
+    ], eagerError: true);
 
     final saldoResult = results[0];
     final taqsithResult = results[1];
 
-    // ✅ CEK MOUNTED LAGI SEBELUM SET STATE
     if (!mounted) return;
 
-    setState(() {
-      // ✅ PROSES DATA SALDO
-      if (saldoResult['success'] == true) {
-        _saldoData = saldoResult['data'] ?? {};
-        print('✅ Berhasil load data saldo');
-      } else {
-        _saldoData = {};
-        print('❌ Gagal load data saldo');
-      }
+    // ✅ PROSES DATA DENGAN CEK ERROR
+    Map<String, dynamic> processedSaldoData = {};
+    Map<String, dynamic> processedAngsuranData = {};
 
-      // ✅ PROSES DATA TAQSITH - SESUAI STRUCTURE DARI RIWAYAT_ANGSURAN_SCREEN
-      if (taqsithResult['success'] == true) {
-        _angsuranData = _processTaqsithDataForDashboard(taqsithResult);
-        print('✅ Berhasil load data taqsith untuk dashboard');
-      } else {
-        _angsuranData = {};
-        print('❌ Gagal load data taqsith');
-      }
-      
-      _isLoading = false;
-    });
+    if (saldoResult['success'] == true) {
+      processedSaldoData = saldoResult['data'] ?? {};
+      print('✅ Berhasil load data saldo');
+    } else {
+      print('❌ Gagal load data saldo: ${saldoResult['message']}');
+    }
+
+    if (taqsithResult['success'] == true) {
+      processedAngsuranData = _processTaqsithDataForDashboard(taqsithResult);
+      print('✅ Berhasil load data taqsith');
+    } else {
+      print('❌ Gagal load data taqsith: ${taqsithResult['message']}');
+    }
+
+    // ✅ SEKALI SET STATE SAJA
+    if (mounted) {
+      setState(() {
+        _saldoData = processedSaldoData;
+        _angsuranData = processedAngsuranData;
+        _hasError = false;
+        _errorMessage = '';
+      });
+    }
+
   } catch (e) {
     print('❌ Error loading dashboard data: $e');
     
-    // ✅ CEK MOUNTED SEBELUM SET STATE ERROR
     if (!mounted) return;
     
     setState(() {
-      _isLoading = false;
       _hasError = true;
       _errorMessage = 'Gagal memuat data: $e';
       _saldoData = {};
@@ -1033,39 +1088,37 @@ Container(
     }
   }
 
-// ✅ REFRESH DATA FUNCTION
+// ✅ PERBAIKAN: REFRESH DATA DENGAN FLOATING SNACKBAR
 Future<void> _refreshData() async {
-  // ✅ CEK MOUNTED
   if (!mounted) return;
   
-  setState(() {
-    _isLoading = true;
-    _hasError = false;
-    _errorMessage = '';
-  });
-
   try {
-    // Refresh user data dari session
-    await _loadCurrentUser();
-    // Refresh data dari API
-    await _loadDataFromApi();
-    // Refresh notifications
-    await _loadUnreadNotifications();
+    setState(() {
+      _isLoading = true;
+      _hasError = false;
+      _errorMessage = '';
+    });
+
+    // ✅ GUNAKAN METHOD PARALLEL YANG SAMA
+    await _loadAllDataParallel();
     
-    // ✅ Panggil callback jika ada
     widget.onRefresh?.call();
     
-    // ✅ CEK MOUNTED SEBELUM SHOW SNACKBAR - FIX BACKGROUND
     if (mounted && !_hasError) {
+      // ✅ FLOATING SUCCESS SNACKBAR
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text(
-            'Data berhasil diperbarui',
-            style: TextStyle(color: Colors.white), // ← TEXT PUTIH
+          content: Row(
+            children: [
+              Icon(Icons.check_circle, color: Colors.white, size: 20),
+              SizedBox(width: 8),
+              Text('Data berhasil diperbarui'),
+            ],
           ),
-          backgroundColor: Colors.green[700], // ← BACKGROUND HIJAU
-          duration: const Duration(seconds: 2),
-          behavior: SnackBarBehavior.floating,
+          backgroundColor: Colors.green[700],
+          duration: Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating, // ← INI YANG BUAT FLOATING
+          margin: EdgeInsets.all(16), // ← JARAK DARI SISI LAYAR
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
           ),
@@ -1075,26 +1128,28 @@ Future<void> _refreshData() async {
   } catch (e) {
     print('❌ Error refreshing data: $e');
     
-    // ✅ CEK MOUNTED SEBELUM SET STATE ERROR
     if (!mounted) return;
     
     setState(() {
-      _isLoading = false;
       _hasError = true;
-      _errorMessage = 'Gagal refresh data: $e';
+      _errorMessage = 'Gagal refresh: $e';
     });
     
-    // ✅ FIX ERROR SNACKBAR JUGA
     if (mounted) {
+      // ✅ FLOATING ERROR SNACKBAR  
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            'Gagal refresh data: ${e.toString()}',
-            style: const TextStyle(color: Colors.white),
+          content: Row(
+            children: [
+              Icon(Icons.error_outline, color: Colors.white, size: 20),
+              SizedBox(width: 8),
+              Text('Gagal refresh: ${e.toString()}'),
+            ],
           ),
-          backgroundColor: Colors.red, // ← BACKGROUND MERAH
-          duration: const Duration(seconds: 3),
-          behavior: SnackBarBehavior.floating,
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 3),
+          behavior: SnackBarBehavior.floating, // ← INI YANG BUAT FLOATING
+          margin: EdgeInsets.all(16), // ← JARAK DARI SISI LAYAR
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
           ),
